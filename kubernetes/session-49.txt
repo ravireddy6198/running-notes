@@ -1,0 +1,204 @@
+
+															Session - 49
+														=====================
+														
+														
+														
+														
+
+
+--> before class we have only two things image ni build cheyadam okati and image ni elaa run cheyadam anedhi inkokati , so image ni build cheyadam anedhi 
+	dockerfile to chestunnam, image ni ela run cheyaali anedhi kubernetes ki manifest file dwaara manam inform chestunnam
+
+--> create cluster
+	eksctl create cluster --config-file=eks.yaml
+	kubectl get nodes  ( here master node is created and  managed by EKS and these 3 worker nodes creadted from desired capacity )
+	
+	create 06-env.yaml file in in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/06-env.yaml
+	alias ka="kubectl apply -f"
+	ka 06-env.yaml
+	alias kp="kubectl get pods"
+	kp 
+	kubectl exec -it env -- bash ( env command shows all the env variables )
+	
+backend --> DB connection --> once results are fetched connection close ( here sometimes memory occupied effectively by one and rest of the pods will not have the resources for that
+
+--> manaki resource anedhi okati vundhi dheenni manam pod create cheseapudey cheptaam enta CPU kaavali and enta RAM kaavali anedhi apudu pods only aa suffient 
+	resources ni maatramey use chesukuntundhi and beyond that inka edyna pods memory or resources ni consume chestunnatlayitey apudu adhi edyna coding lo problem ayundochu apudu developers choosukuntaaru endhukantey ikkada already manam min max limit ichaam resources consume cheyadaaniki
+
+	create 07-resources.yaml in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/07-resources.yaml
+	ka 07-resource.yaml
+	kp
+	kubectl top pod ( epudyna manaki ea pod enta memory consume chestundho telusukovalanukunnapudu ee command vaadutaam )
+	
+	this is about setting the resource request and limit ( limit can be more than the request )
+	
+--> you should not mix the configuration with code/defintion ( like separate the hardcode values into variables inside the code )
+
+	using configmap we can achieve this for that we have to give one file and attached to pod whenever the values changes modify in configmap file and restart the pods
+	
+	create 08-config-map.yaml in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/08-config-map.yaml
+	ka 08-config-map.yaml  ( in kubernetes evething is resource so we have to apply every yaml file)
+	kubectl get configmap
+	kubectl describe configmap myconfig
+	
+	now we can attach this myconfig config-map attached to one pod for that
+	
+	create 09-pod-config.yaml in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/09-pod-config.yaml
+	ka 09-pod-config.yaml
+	kp
+	kubectl exec -it pod-config -- bash ( env command shows all the env variables )
+	if we want to change the values in config-file first we have to modify in 08-config-map.yaml file
+	ka 08-config-map.yaml
+	kubectl delete -f 09-pod-config.yaml
+	ka 09-pod-config.yaml
+	kubectl exec -it pod-config -- bash ( env command shows all the changed env variables )
+	
+--> secrets like username and passwords stored in kubernetes with base64 encoding format ( but it is not recommeded we can use aws secret manager in future
+	just practice )
+	
+	siva --> saiavaaa
+	siva --> fddsfh9u05471490
+	
+	create 10-secret.yaml in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/10-secret.yaml
+	ka 10-secret.yaml
+	kubectl get secret
+	kubectl describe secret dotfile-secret ( but here we cannot see the username and password it is encrypted )
+	
+	now we can attach this dotfile-secret secret kind attached to one pod for that
+	create 11-pod-secret.yaml in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/11-pod-secret.yaml
+	ka 11-pod-secret.yaml
+	kp
+	kubectl exec -it pod-secret -- bash ( env command shows all the env variables )
+	
+--> as of now we are running the pods but for now we want to access the pods/containers inside pod from outside ( like nginx run chestunnam but dhanni outside 
+	nunchi elaa access cheyaali) or pod to pod communication elaa jarugutundhi (  forntend to backend and backend to db )
+	pod anedhi delete ayi create ayinapudu IP adresses may changed usually Ip address lu gaani entire pod ea ephimeral ayinapudu Ip address lu kooda change avutaayi so we cannot give the IP's for pods communication, but we have service resource to achieve this pod communication, ee service anedhi
+	1. load balancing kosam and 2. pod to pod communication kosam
+
+Service
+=========
+1. load balancing ( ikkada service anedhi LB laaga pani chestundhi pod - service - pod here ist pod sends the request to service and service will serve the 
+					request to one or many pods) just like service discovery
+2. pod to pod communication
+3. as DNS between pods
+
+--> create 12-service.yaml in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/12-service.yaml
+	kubectl delete pods --all -n default  ( deleting all pods in default namespace )
+	ka 12-service.yaml
+	kubectl get svc ( here we can see all service info, ikkada manaki nginx ki oka IP vostundhi i.e., cluster IP )
+	kp -o wide ( here manam mana pod yokka IP address's ni choostaamu pod IP's )
+	ipudu manam elaa connect avvalo chooddamu  ( main ga manam ikkada chesedhi oka pod nunchi maroka pod ki service dwaara elaa connect avvalo choostunnam )
+	ka 03-multi-container.yaml
+	kp
+	kubectl exec -it multi-containers -- bash ( here we are inside multi-containers pod )
+	
+	so manam multi-containers nunchi nginx service ni access chestey adhi backend pod nunchi response teesukuraavali ikkada nginx service anedhi backend pod ki attach ayindhi kaabatti
+	curl nginx ( we have to see the response , this is coming from bckend pod actually )
+	nslookup nginx
+	apt update -y
+	apt install dnsutils -y
+	so ikkada choostey manam multi-containers pod anedhi service ni hit ayindhi response vochindhi to confirm that we can see the IP address of nginx service ( this nginx service send the request to backend pod and get the response and give it to multi-containers pod )
+	
+multi-container --> curl nginx --> 
+
+--> service lo 3 types of service vunnayi :
+	---------------------------------------------
+
+1. cluster IP --> default, only works internally ( oka pod inko pod to connect avvadaaniki clusterIP is enough )
+2. NodePort --> external requests ( manam epudyna public ki expose cheyalanukunnapudu like nginx container inside pod ni  ee nodeport ni use chestaamu )
+
+--> create 13-node-port.yaml in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/13-node-port.yaml
+	kubectl delete -f 12-service.yaml
+	ka 13-node-port.yaml
+	kubectl get svc ( here we can see the nodeport type, port 80:30157 and clusterIP, this clusterIP is a subset of nodeport )
+	so ikkada kubernetes em chestundhantey manam nodeport ichinapudu adhi linux server lo edhoka port(30157) ni random ga select chesukuni clusterIp service ( ikkada type nodeport ichinapudu adhi automatic ga ClusterIp ni istundhi) ki aa port ni map chestundhi means evaryna person Linux serverIp:30157 ani ichinapudu kubernetes aa port nunchi vochey request ni clusterIP service ki pampistey ee clusterIp service already pod ki attach ayuntundhi kaabatti user request ni aa respective pod ki pampistundhi and get the response back 
+	
+	meeru nodeport ni open chesaarantey adhi automatic ga clusterIp ni kooda create chestundhi means clusterIP is a subset of nodeport
+	ipudu manam adhi ea server lo vundho telusukovalantey
+	kp -o wide
+	take the Ip of backend-np and search the instances in aws ec2 and match this to private Ip and get that publicIp of respective privateIP and hit in the browser publicIP:30157 ( ikkada idhi reposnse ivvadhu antey manam ekkadyna oka server and port ni browser lo istey adhi access cheyatledhu antey manam first check cheyalsindhi SG )
+	edit sg rule for that instance and add this 30157 port and save it 
+	now we can see the response after hitting in the browser 
+	ikkada pod anedhi ekkadytey run avutundho aa server yokka IP address ichi port number (30157) ichinapudu (kubernetes internal ga ee network antatini manage chesukuntundhi that is what kubernetes is doing the heavy lifting ) serverIp:30157--> adhi nginx-np service yokka clusterIp ni hit chestundhi( means nginx-np service ni hit chestundhi )clusterIp of nginx-np service custerIp:80-->inside this nginx-np service pods are attached already and also ports are mapped as targetPort: 80 ( inside yaml file we can see this )--> backend-np:80 ( ikkada pod loki velli container ni access chestundhi ) --> apudu response will get back 
+	publicIp:30157 --> clusterIp:80 --> pod:80 ( request flow )
+	
+	oka vela nenu vere server (worker node) Ip isteu work avutundha ledha chooddamu, 
+	another serverIp:30157 here also we will get the response , why
+	so actually kubernetes enti antey enni servers vunnayi anedhi manaki anavasram, kubernetes chesey extraction enti antey kindha enni servers vunna kooda manaki application raavali asalu kubernetes to work chesetapudu manam ideal ga server touch cheyakoodadhu, so kubernetes em chestundhantey vundey anni servers lo ee 30157 port ni open chestundhi, so aslu ikkada servers anedhi manaki anavasaram , mee servers enni ayina vundanivvandi 
+	
+	so endhuku kubernetes annintini kalipi networking ga handle chestundhantey, 3 worker-nodes ( servers ) ni together ga chesi co-ordinate cheyadaaniki, so meeru nodeport anedhi okati open chesaaru antey adhi anni servers lo open avutundhi, apudu manam deni server pyna hit chesinaa kooda adhi clusterIp ni hit chestundhi Here pod can be anywhere like pod anedhi ea server vunna no problem clusterIp dhanni access chestundhi 
+	
+	see the diagramme we can understand easily (  C:\devops-notes\kubernetes\diagrammes )
+	
+	random nodeports are not preferable we have to give custom nodeports b/n the range 30000 - 32767
+	nodePort: 30007
+	kubectl delete -f 13-node-port.yaml
+	ka 13-node-port.yaml
+	kubectl get svc ( now we can see the custom nodeport for nginx-np service )
+	change sg in instance to access the nginx
+	in browser we can see the response from anyserverIp:30007 
+	publicIp:30007 (nodeport) --> clusterIp:80 ( ikkada custerIp Service choosukuntundhi pod ea server lo vundho ani ela approach avvalo ani)--> pod:80 ( reuest flow )
+	
+	so ee service anedhi kubernetes lo chaala keyrole play chestundhi networkig mottanni service a handle chestundhi
+	
+	here below interview question refer ?
+	
+	kubectl delete -f 13-node-port.yaml
+	
+--> create 14-load-balancer.yaml in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/14-load-balancer.yaml
+	so ikkada nenu labels changes chestunna oka vela meeru anni at a time run chesina kooda problem raakunda naming valla 
+	ka 14-load-balancer.yaml
+	kubectl get svc ( here we can see the LB DNS as External_IP ) ( here kubernetes anedhi internal ga LB service ni use chesukuni LB ni create chesi 
+	still ikkada spec lo nodePort: 30007 ani istey  ( ikkada LB create avutundhi manam choodochu aws lo LB--> Listner --> target group etc )
+	request flow of the user  the user given the request user--> LB --> nodeport (service) --> clusterIP:80 --> pod ( pod can be anywhere like any worker node ) 
+	
+	( here kubernetes anedhi internal ga LB service ni use chesukuni LB ni create chesi and listerner:80 ni set chesi ( antey port:80 ni listen chestundhi ) and forward the request to TCP:30007 and Target groups ni attach chesi mottam LB setup ni chesi LB DNS:80 dwaara request pass ayyelaaga chestundhi )
+	LB DNS:80 --> nodeport:30007 --> clusterIp:80 --> pod:80 ( pod can be existed in any worker-node )
+	
+	LoadBalancer --> only works with cloud providers. here service open classic LB. 
+	
+	LoadBalancer > NodePort > ClusterIP    ( so meeru type: LoadBalancer anedhi ivvakapote adhi automatic ga ClusterIp ney teesukuntundhi )
+	so manam networking ni simple cheyadaanike kubernetes vaadutunnam but unfortunately dheeni valla lopala em jarugutundho teliyadhu so ikkada networking gurinchi telusukovalsina avasaram koodalekunda poyindhi
+
+	in browser we cann see the nginx response from LB DNS
+	
+	finally manam sg kooda tight cheyochu LB yokka sg-id ni ec2 sg lo source ga istey saripotundhi instead of 0.0.0.0/0 ( allow -all IP)
+	LB DNS ni ROTE53 record dwaara create chesi kooda access cheyochu
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--> what are the services in kubernetes ?
+	service are used for loadbalancing and pod to pod communication purposes a service mesh also pod to pod antey oka pod inkoka pod ni elaa approach avvali anedhaaniki solution anna maata service anedhi, and also DNS laaga kooda, so there are 3 types of services
+	one is for clusterIp purely for insternal purposes and another one is NodePort, using NodePort external people can access and another one is Load Balancer( so ikkada LB enti antey manam mana Ip address, mana port number bayata public ivvadam do you think it is safe or not, so manaki 20 or 30 worker nodes vunnayi anukondi anni workernodes yokka IP address lu ni public iki ivvalemu kaabatti so LB, it is only cloud providers toney work avutundhi 
+	LoadBalancer --> only works with cloud providers. here service open classic LB., ipudu EKS vundhi kaabatti eks ki LBing integration vuntundhi kadha obviously aws annaka, so here service opens classic LB ( it is old generation ), so manam futurelo ingress controller use chestaamu that is from ALB
+	1. load balancing
+	2. pod to pod communication
+	3. as DNS between pods
+	
+	
+--> ECS, fargate not in the syllabus mostly compnies vaadavu some one asked how it works
+--> what is private DNS how it is used for usecase?
+	

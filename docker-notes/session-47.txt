@@ -1,0 +1,213 @@
+
+																Session - 47
+															==========================
+															
+															
+															
+															
+
+pushing docker images to dockerhub
+--------------------------------------
+--> images create chesi docker compose ea system lo ayina work avvalantey images ni dockerhub ki khachitam ga push cheyaali so usually manam
+													
+create Dockerfile
+build image
+push to docker hub
+
+--> build the mysql image
+	docker login -u ravi6198 ( give password)
+	docker push ravi6198/mysql:1.0.0
+	we have to build same above steps for backend and frontend and push to dockerhub
+	docker tag frontend:1.0.0 ravi6198/frontend:1.0.0  ( retag the image if image name not given properly means dockerhub accountname missing)
+	change the images in docker-compose.yaml file refer below
+docker-compose.yaml
+	image: ravi6198/mysql:1.0.0
+	image: ravi6198/backend:1.0.0
+	image: ravi6198/frontend:1.0.0
+	
+	docker compose up -d 
+	access from browser to see the app'n working ( sometimes backend not running increase 10 sec sleep in docker compose.yaml file )
+	
+--> ippativaraku manam best practices em chesaamu antey use minimal images and official images and then don't run containers as root privilised containers( so root to access istey em chestundho kooda choosamu manam, OS yokka hard disk ni access chesi we can access the data of other containers and other projects so mottaniki system ni kooda hak cheyagaladhu ) 
+	
+Image layers
+=============
+--> export DOCKER_BUILDKIT=0
+	docker build -t ravi6198/backend:1.0.0 .
+	docker working from layers means docker anedhi build time instructions wise layers create chesi save chesukuntundhi endhukantey dockerhub lo memory decrease cheyadaaniniki valla website harddisk full avvakunda vundataaniki, first instruction download images and create container after aa container pyna second instruction and give it as intermediate container/image and after take third instruction running on intermediate container/image and give it as another intermediate container/image ...... and so on final instruction give it as final container/image ( all intermediate container/image got deleted after completions of second instruction, third... etc)
+	
+	so ikkada evaryna same step docker file lo ichinapudu adhi aa steps ni dockerhub lo save chesukodhu already save ayina dhaanney refer chesi migata new instructions ni maatram dockerhub lo save chesukuntundhi( new instructions ki new space allocate chestundhi same instructions ki already save ayina memory ney refer chestundhi) below to test the memory allocation for layers in dockerhub
+	
+	create layer-test flder to test layers memory allocation in dockerhub
+
+FROM node:20.18.3-alpine3.21
+RUN addgroup -S expense && adduser -S expense -G expense
+RUN mkdir /opt/backend
+RUN chown -R expense:expense /opt/backend
+WORKDIR /opt/backend
+COPY package.json .
+
+--> docker build chesinapudu manam choostey old instructions ni save cheyakunda cache nunchi techukuntundhi new instructions ki maatram memory allot chestundhi and allagey manam docker push chesinapudu choostey only new instructions intermediate images maatramey push avutaayi old instructions yokka intermediate images ni mounted from ravi6198/backend ani choopistundhi antey dockerhub lo vunna aa ravi6198/backend images nunchi mount chestundhi ee new image ki means refer chestundhi so finally
+
+Docker maintains the images as layers, each and every instruction is one layer. so docker em chestundhi docker creates
+1. intermediate container from instruction-1
+2. docker runs 2nd instruction on top of IC-1. then docker saves this another layer
+3. docker saves this container as another image layer. create intermediate container out of it IC-2
+4. Now docker runs 3rd instruction in IC-2 container. docker saves this as another layer
+5. docker creates intermediate container from this layer as IC-3
+
+--> so docker build chesinapudu adhi layers wise create chestoo save chesukuntundhi existed instructions ki memory dockerhub lo allocate cheyakunda refer chestooo newer instructions ki layers ni create chestoo aa layers ki memory allocate chestundhi next time new project lo evyna same instructions vuntey aa instructions ki sambandhinchina layers ni dcokerhub nunchi refer chestundhi new instructions ki sambandhinchina layers ki maatram space ni dockerhub lo allocate chestundhi
+
+How do you optimise docker layers?
+==================================
+1. less number of layers faster builds, because number of intermediate containers are less you can club multiple instructions into single instruction ( multiple run instructions vunnapudu single layer laaga run chestey build fast ga jarugutundhi alaagey no. of layers taggutaayi)
+
+RUN addgroup -S expense && adduser -S expense -G expense && \
+    mkdir /opt/backend && \
+    chown -R expense:expense /opt/backend
+	
+--> docker build backend to see the no. of instructions running and build fastness( ikkada for suppose production deployment time lo manaki idhi baaga use avutundhi manam no. of instructions tagginchinapudu build fast ga jarigi downtime tagginchadaaniki use avutundhi)
+	
+2. keep the frequently changing instructions at the bottom of Dockerfile (means top layer during build process)
+	
+	COPY package.json ./
+	COPY *.js ./
+	RUN npm install
+	
+--> frequent ga change aye instructions ni top layer lo pettali apudu bottom layes anni cache nunchi vostaayi otherwise manam bottom layer lo pettinapudu build anedhi from the scratch create avutundhi apudu layers concept use avvadhu so this is to reduce build time
+
+	docker build again to see the build time effectively
+
+
+
+Multi stage builds
+===================
+Java
+JDK --> Java development kit
+JRE --> Java runtime environment
+
+JDK > JRE
+JRE is subset of JDK
+
+JDK = JRE + Extra libraries
+
+while installing some libraries, OS adds extra space to HD. We will take only that jar file output and copy it another Dockerfile where only jre runs...
+
+We can have 2 dockerfiles one is for builder, we can copy the output from builder into 2nd dockerfile and run it, we can save some image space using this
+
+
+#FROM node:20
+FROM node:20.18.3-alpine3.21 AS builder
+RUN addgroup -S expense && adduser -S expense -G expense && \
+    mkdir /opt/backend && \
+    chown -R expense:expense /opt/backend
+WORKDIR /opt/backend
+ENV DB_HOST="mysql"
+USER expense
+COPY package.json ./
+COPY *.js ./
+RUN npm install
+CMD ["node", "index.js"]
+
+--> multi stage builds are used to reduce the size and improve the performance of the images and containers , so we can have two docker files inside one docker file we will use one from the first dockerfile as builder and added it to the second dockerfile so finally builder will be automatically removed by docker in this we can reduce the size of the image and improve the performance 
+
+Docker multistage builds are primarily used to create smaller, more optimized container images by separating the build environment from the runtime environment. We can have one as builder and one as runner, copy the desired output from builder to runner. docker removes builder automatically
+
+Note :
+------
+recent ga meeru mee project lo chesina achievement enti ani vochinapudu intakumundu maa docker files anevi optimize ga vundevi kaadhu nenu konchem opmize anedhi chesaanu node.js project direct ga run chestunnaru nenu dhaanilo multi stage build chesaanu dhaani valla 10% size of the image tagginchaanu and layers ni optimize chesaanu konni multiple run instructions ni club chesaanu frequently chnaging instructions ni bottom lo pettanu and root containers dwaara run chestoo vunnaru adhi chaala danger dhanni nenu non root containers laaga chesaanu 
+
+--> docker architecture antey simple generally architecture antey enti aa entire system lo vunde components so ipudu manaki client antey docker command line, 
+	docker host antey docker engine ekkadaitey install ayindho adhi docker host, registry antey adhi dockerhub so ipudu manam docker run nginx ani run chesina taruvata docker em chestundhi, nginx aney image local lo vundho ledho check chesukuntundhi oka vela lekapotey dockerhub nunchu pull chesi local lo petti aa image nunchi container ni create chesi output anedhi manaki istundhi( container id ) 
+	
+	docker architecture contains of docker client, docker daemon, local registry and central registry when we issue docker command docker engine checks whether the image is in local or not, if it is not available it will pull the image from dockerhub keep it in the local repository creating container out of it and show the output to the user and we can have docker volumes and docker networking also
+	
+--> in containers we have only two steps  ( image is occupying some space it is physical, container is logical means aa image ni teesukuni container ni create chestundhi )
+
+1. build the image 
+2. run the image as container 
+
+
+pg have 100 rooms, what if water is stopped...
+
+if owner have say 5pg, 
+
+--> docker host anedhi okate vundhi what if underlying docker server is crashed. containers anni effect avutaaya ledha, mottam anni down ayipotaayi so 
+	andhukosam general ga em kaavali We need to maintain multiple docker hosts. so multiple docker hosts vunnapudu oka server lo edyna problem vostey aa containers annintini immediate ga another servers ki move cheyaali so ikkadentantey ipudu so we should have multiple docker servers, again multple docker servers vunnapudu vaatini manage cheyadaaniki evarokaru kaavali kadha,so when you have multiple docker hosts You need some orchestrator to manage all the docker hosts... so ee archestrator aney component em chestundhantey anni servers ni monitor chestoo edyna servers lo problem vochinapudu immidiate ga aa containers annintini verey servers lo ki shift chestundhanna maata so dheenikosam aa component ni emantarantey docker swarm antaaru,
+	docker swarm is docker native orchestrator but dheenilo anni advantages levu, so manaku popular archestrator enti antey
+
+	kubernetes is the popular container orchestrator tool.. ( archestrator means just like a manager )
+	if you have multiple servers running the containers then you need one archestration tool ( just like a ansible control machine )
+	oka single project 1 or 2 container antey archestration range ki vellalsina avasaram ledhu 100's of containers vunnapudu archestration ki vellali veltey use enti antey autoscaling 
+
+autoscaling of containers --> mee application ki traffic ekkuva ayye koddi multiple containers ni spin up cheyaali kadha adhi docker vundha, antey ledhu no
+HA --> run containers in multiple servers ( container ni oka server lo ney run cheyakunda 3 servers lo run chesinapudu oka server down ayina migata rendu 
+		servers up lo vuntaayi kaabatti it is HA
+reliability --> oka server down ayindhi anukondi orchestrator shifts the container to another host if one host is down 
+-> and netwoking multiple hosts vunnapudu vaati madyalo oka common networking channel vundaali kadha ( docker swarm lo idhi konchem weak )so, 
+kubernetes n/w and DNS is more stronger than docker swarm ( DNS means ikkada communication b/n the containers )
+kubernetes integrates with cloud providers
+in kubernetes storage(volumes) is better than in dockerswarm
+
+Note :
+------
+	why should i use kubernetes if we have docker swarm from the docker ?
+	
+	so autosacling, HA, reliability, volumes, networking,  everything is better in kubernetes than docker swarm , docker swarm is native so ipudentantey 
+	
+	building the image kosam maatramey docker ni use chestaam but
+	image ni run cheyadaaniki we will use kubernetes 
+	
+1. build the image --> use docker
+2. run the image as container --> use kubernetes
+
+--> kubernetes mee project lo epudu avasram ledhantey means maximum 5 or 6 startups lo okatey project run avutu vuntundh just like join devops project ikkada 
+	3-4 container vuntaayi anukondi apudu kubernetes avasram ledhu, heavy projects vunnapudu apudu meeru kubernetes ki vellali 
+	pedda pedda companies lo maatramey use chestaaru like microservices projects 
+	even frontend, backend, db ( 3 -tier application ) ki kooda kubernetes use cheyaru and even container ni kooda use cheyaalsina avasram ledhu 
+	
+	so ippati nunchi manam images ni docker to build cheyabotunnam avasram ayinapudu aa build chesina images ni kubernetes lo run cheyabotunnam anna maata 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--> How do you optimize the docker images ? what are the best practices follows in docker?
+
+	we are using official minimal images
+	running containers as non-root containers
+	optimizing the layers
+	by clubbing the multiple instructions into single instruction and frequently changing instructions at the bottom of the dockerfile and then
+	mutilti stage builds
+	we have to use our own network custom docker bridge network
+	we are using volumes 
+	we are using environment variables
+	all these are docker best practices we followed
+
+
+
+--> How do you optimise docker layers ?
+
+	less number of layers faster builds, because number of intermediate containers are less you can club multiple instructions into single instruction 
+
+	reduce the no. of layers by clubbing the multiple instructions into single instruction and another one keep the frequently changing instructions at the bottom of Dockerfile
+	
+--> what happens when you run docker build ? how the layering works ?
+--> kubernetes vs docker swarm ?
+	
+	
+	
+	02543181874
+	1554

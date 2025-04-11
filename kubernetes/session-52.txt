@@ -1,0 +1,255 @@
+
+																	Session - 52
+																=======================
+																
+																
+																
+																
+																
+
+
+--> Kubernetes original ga stateless application kosam, kaani kubernetes epudytey popular ayindho sateful applications kooda andhulo manage cheyalaney vuddesham to ee volumes 
+	aney concept ni start chesaaru 
+	so kubernetes cluster it means control plane , ec2 instances akkada data anedhi vunchdam manchidhi kaadhu , so we havae other storage options , EBS kaani, EFS kaani ,S3 kaani ivanni aws lo vunde storage options kaabatti manam cluster bayata kaani data ni vunchitey , general ga Entrire cluster ( EKS ) delete ayipoyina kooda , control plane, servers mottam delete ayipoyina kooda mana data anedhi safe ga vundhi malli meeru epudyna cluster create chesukunna taruvata malli volumes nunchi data ni mount chesukovachu , last class static EBS completed 
+
+
+perm storage
+=============
+1. SAN
+2. K8 Admin
+3. Expense DevOps Engineer --> they get access to only expense namespace
+
+Expense DevOps engineer send a mail to SAN with the devops team manager approval. SAN will take their manager approval and create storage for us. apudu vaallu oka disk ni create chesi aa disk ni manaki istaaru apudu manam aa details annintini
+
+We will forward disk details to k8 admin and ask them to create PV. ikkada ENDHUKU vaallani PV ney adagali antey , ikkada k8 lo manaki 2 types of resources vunnayi
+
+	kubectl api-resources ( k8 lo vundey mottam resources ni ilaa choodochu ikkada PV anedhi namespace level kaadhu, (ikkada example Expense DevOps Engineer vunnadu kadha vallaki --> they get access to only expense namespace vostundhi) ,  which means cluster level ani meaning )
+	
+	we have two types of resources 
+
+1. namespace level
+2. cluster level ( cluster level access manaki vundadhu means ikkada resources create cheyadaaniki manaki accass vundadhu  )
+	
+	andhukani manam k8 admin ga vunde vaallani adugutaam PV create cheyamani 
+
+they create PV and send the name for us.. once PV crate ayina taruvata 
+
+then we will create PVC ( ikkada PVC antey Claim ) , pod to access the storage( so generally onpremise ayina cloud ayina mottam idhey jarugutundhi pyna cheppina anni steps )
+
+Kid --> Mom --> Dad --> Wallet
+Pod --> PVC --> PV  --> Storage
+
+--> so what are the steps involves for the above process
+
+1. install drivers
+2. give permissions to worker nodes
+3. create volume
+4. create PV, PVC and cliam through pod
+5. EC2 and EBS should be in same az incase of EBS provisioning
+
+kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.40"  ( installing the drivers )
+EbsCsi permmision to worker nodes 
+create volume 30 gb ( volume ID generated )
+EC2 and EBS should be in same az incase of EBS provisioning
+ipudu volume ID ni teesukuni PV ni create chestaamu ( refer  https://github.com/DAWS-82S/k8-resources/blob/main/volumes/01-ebs-static-pv.yaml )
+	ka 01-ebs-static-pv.yaml,   kubectl get pv 
+so ikkadito k8-admin task complete ayindhi vaallu manaki aa PV name pampistaaru then we have to create PVC ( for claiming the volume ) , POD ( pod lo ee volume elaa use chesukovaalo manali teliyaali antey ikkada volumes ni add chestunnam means create chesina volume edytey vundho PVC dwaara like 30-33 lines , now add chesina taruvata ee vloumes ni manam mount chesukovaali like 27-29 lines ikkada nginx lo manam ea directory ki aa directory create chesukunnapudu indhulo vunna data anedhi safe ga vuntundhi )
+
+	https://github.com/DAWS-82S/k8-resources/blob/main/volumes/02-ebs-static.pvc.yaml   ( refer this for the above PVC, pod, service creation )
+	ka 02-ebs-static.pvc.yaml,   kubectl get pods 
+	watch kubectl get pods ( we can see the live creation of pods see the status )
+ikkada  we can see the line 23 indicates pod created in 1b but volume creation and pod creation (ikkada EC2 lo pod creation ) both are in same AZ , so manaki stataus alaagey choopistundhi, endhukantey 1b lo vundey pod 1a lo vundey volume ni access chesukoledhu,  koddisepu taruvata timeout ayipotundhi now we can change the 23 line zone is same as created EBS zone 
+
+	kubectl delete , ka 02-ebs-static.pvc.yaml,   kubectl get pods  ( now the pod status is in running ) , so now it is mounted properly 
+so ipudu manam nginx folder lo create chesina ea file ayina adhi volumes to mount ayuntundhi kaabatti mana data anedhi ekkadiki velladhi even pods, cluster delete ayina kooda 
+
+--> so this is EBS static provisioning now we can see the dynamic EBS provisioning 
+	
+
+EBS dynamic
+============
+
+Kid --> Mom --> UPI ( dad  ni adagakunda father phone teesukuni UPI transfer chestundhi )
+Pod --> PVC --> SC ( this is called storage class ikkada PV, physical storage avasaram ledhu mottam storage class ea handle chestundhi )
+
+ipudu kotta ga dynamic provisioning lo manaki StorageClass aney object vostundhi 
+
+StorageClass --> this object is responsible for dynamic provisioning. it will create external storage and PV automatically ( ikkada UPI annanata maatrana dabbulu levani kaadhu 
+                 money bnk lo vundhi physical ga ivvakunda through up DWAARA TRANSFER CHESTEY POD KOODA USE KUNTUNDHI )
+				 
+so we have steps for EBS dynamic provisioning
+1. install drivers
+2. give permissions to worker nodes
+3. create storage class
+
+--> K8 lo manaku default ga oka SC vuntundhi ( kubectl get sc ) but manam default ga vundey SC gp2 ni manam use cheyamu manam own ga create chesukuntaamu idhi kooda EBS ki 
+	sambandinchey
+
+https://github.com/kubernetes-sigs/aws-ebs-csi-driver/tree/master/examples/kubernetes/dynamic-provisioning 
+https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/examples/kubernetes/dynamic-provisioning/manifests/storageclass.yaml ( ee repo lo manaki steps vuntaayi ikkadi nunchi teesukuni modify chestaamu mana project ki taggatlu )
+
+--> create 03-ebs-sc.yaml ( so ee SC creation kooda K8 admin task actually )
+
+	https://github.com/DAWS-82S/k8-resources/blob/main/volumes/03-ebs-sc.yaml
+	
+	kubectl delete -f 02-ebs-static.pvc.yaml and 01 also ( both deleted manaki confusion lekunda ) ( so pyna static ki create chesina volumes ni manam manual ga create chesukunnam kaabatti manual gaaney volumes loki velli volumes ni delete chesukovaali )
+	delete the volume in EBS volumes  in aws  ( charges incurred if not deleted ) 
+	
+--> storageclass.yaml lo reclaimPolicy: Retain( dheeni choostey manaki idhi default ga delete vunutndhi antey pod ni delete chestey storage kooda delete avutundhi so manam 
+	explicit ga reclaimPolicy: Retain ani ivvali apudu volume anedhi delete avvadhu dynamic provisiong lo  )
+	
+	ka 03-ebs-sc.yaml
+	kubectl get sc ( now we can see RECLAIMPOICY as Retain , below is defaukt SC with delete ) 
+	
+	so idhi ayipoyina taruvata manam PV ni volume ni create cheyalsina avasaram ledhu meeru dynamic ga meeku enta kaavalo cheptey ee SC ea automatic ga create chestundhi anna maata 
+	
+--> create 04-ebs-dynamic.yaml  ( PVC , pod , service creation, and we can see the 6th line in static it is empty but in dynamic we can mention SC name , and 8 th line 
+	volumeName ikkada anavasaram so delete it endhukantey SC ea volume ni create chesukuntundhi kaabatti  ) 
+
+	https://github.com/DAWS-82S/k8-resources/blob/main/volumes/04-ebs-dynamic.yaml
+	
+	dynamic provisioning lo first SC create chesukovadam first and PVC lo aa sC name ivvali 
+	
+	ka 04-ebs-dynamic.yaml
+	kubectl get pvc ( ikkada choostey PVC bound ayindhi volume ki , antey SC random ga volume create chestundhi PVC adiginapudu ( kubectl get pv ikkada PV create ayi volume bound ayindhantey kachitam ga volume anedhi create ayundaali for that we can see the EBS volumes in aws to check volume should be created it is inuse state means pod anedhi running lo vundhi ani ))
+	kubectl get pods
+	kubectl get svc 
+	now we take the LB DNS and acces from the browser ( 403 forbidden means data emi ledhu ani meaning volumes lo endhkantey data ni volumes nunchi teesukostundhi not usr/share/nginx/html so now )
+	kubectl exec -it ebs-dynamic -- bash  ( cd usr/share/nginx/html , do echo " h1 statement " > index.html ani istey ee location lo idhi volumes ki mount ayuntundhi kaabatti ee data anedhi delete avvadhu even pod or cluster delete chesina kooda ) 
+	now we can see the browser for content ( here mana pod ni delete chesinaa kooda volumes anedhi available lo ney vuntundhi means data safe ga vuntundhi malli kaavalantey mount chesukovachu aws loki velli check chesukovachu )
+	
+	ikkada kachitam ga volumes ni eppati kapudu delete cheyaali even dynamic EBS provisioning also 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+EFS --> Elastic file sharing ( it is like google drive )
+EBS vs EFS
+----------- 
+
+1. EBS should be in same AZ as in EC2, EFS can be anywhere in n/w
+2. EBS is speed compare to EFS
+3. EBS is used OS disk and databases, EFS can be used for file storages ( like customer data ni store chesukovadaaniki ) 
+4. EBS size is fixed. EFS will be scaled automatically ( ikkada EBS lo size 100 GB teesukuntey adhi fix automatic ga peragadhu, EFS lo ayitey disk increased automatically  ) 
+5. EFS is based on NFS protocol. 2049 port
+6. EBS and EFS should be mounted to any instance. ( EBS and EFS rendu oka instance ki mount chesukokunda use cheyalemu ) 
+7. You can have any filesystem attached to EBS I ikkada manam choosm lasttime filesystem is ext4 used ), but EFS use NFS, we can't change. ( but ikkada file system anedhi fix ayipoyindhi )
+
+--> again we have 2 types of provisioning in EFS as well 
+
+EFS static steps
+=============
+1. install drivers
+kubectl apply -k \
+    "github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-2.1"   ( drivers installed )
+	
+	kubectl get pods -n kube-system ( we can see the installed drivers means EFS ki sambandhinchinavi  )
+		
+2. give permissions (EC2 nodes ( any one ) --> security --> IAM Role --> add permissions --> EFS search --> AmazonEFSCSIDriverPolicy ) 
+3. create EFS ( in aws EFS --> create --> name : expense , select eks VPC --> create) ikkada n/w lo ki velli choostey access points create avutaayi 
+4. open port no 2049 on EFS to allow traffic from EC2 worker nodes ( here worker node loni pod ki sg vuntundhi alaagey NFS n/w ki kooda Sg vunutundhi pod nunchi vochey incoming traffic ni n/w SG 2049 vadda allow cheyaali see the diagramme )
+--> take n/w sg group and edit the inbound traffic as type NFS , port : 2049, source custonm : EC2 sg id and save , illa cheyakapotey NFS nunchi pod ki access raadhu means pod nunchi EFS ni access chesinapudu aa n/w EFS allow cheyaali port no 2049 vadda then only access the EFS and data to be mounted with EFS ) 
+5. create PV, PVC and POD
+
+	Refer  https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/examples/kubernetes/static_provisioning/specs/pv.yaml
+	
+--> create PV 
+	https://github.com/DAWS-82S/k8-resources/blob/main/volumes/05-efs-pv.yaml
+	
+	storage: 5Gi it is dummy manaki enta kaavalantey antavaraku veltuney vuntundhi endhukantey EFS size will be scaled automatically , SC is empty for static provisioning and VvolumeHandle: fs-0bde995b741f0197b  ( volume id EFS )
+	
+	ka 05-efs-pv.yaml,   kubectl get pv  ( here we can see the PV CREATED ), so ikkadi varaku K8 admin task vallu manaki PV name pampistey mana dhaanni use chesukuni PVC and pod create chestaamu 
+	
+--> create PVC
+
+	https://github.com/DAWS-82S/k8-resources/blob/main/volumes/06-efs-pvc.yaml
+	
+	storage class should be empty and give volumeName for efs static provisioning 
+	ka 06-efs-pvc.yaml, kubectl get pvc (see the status as BOUND)
+	add 13 - 44 lines 
+	nodeSelector:
+    topology.kubernetes.io/zone: us-east-1a
+	this is not required endhukantey ikkada anta network kadha  claimName: ebs-static 
+	ka 06-efs-pvc.yaml, kubectl get pod  ( pod is running )
+	general ga edyna steps miss ayyayi antey EBS lo AZ check chesukovadam adhey EFS lo ayitey port no. allow cheyakapovadam EFS n/w ki  anna maata 
+	
+	kubectl delete -f 06-efs-pvc.yaml
+	Delete the EFS volume as well in aws 
+	
+	now we can see the EFS Dynamic Provisioning 
+	
+EFS Dynamic  : Dynamic anteyney SC anna maata 
+=============
+1. create storage class
+2. install drivers
+3. give permissions
+
+--> so Dynamic antey ikkada File System ni create chestundhani kaadhu actually idhi kooda manamey create cheyaali ( Create EFS with name expense-dynamic ) but dheenilo access points anedhi vundhi avi dynamic ga create avutaayi 
+
+--> Create EFS with name expense-dynamic in aws  ( here access points anevi maatram n/w lo manam already ichi vunnam, sg lo default 2049 ni allocate chesivunnam adhey ikkada 
+	mount avutundhi let us see )
+	
+	general ga projects lo okkokka project ki okkokka EFS emi create cheyaru for example expense mottaniki okati andhulo ea component ki ayina storage kaavalanukuntey they can handle  ( okkokka project ki okkokka EFS anedhi create chesukuntaamu )
+	
+	create SC  ( manam akkadunna SC ni teesukomu mana own SC teesukuntaamu )
+	
+	https://github.com/DAWS-82S/k8-resources/blob/main/volumes/07-efs-sc.yaml
+	give fileSystemId: fs-032d9e6d385df3391 ( created expense-dynamic file system id so idhi elastic ani manaki mundhey telusu antey perugutooney vuntundhi  )
+	ikkada basePath anedhi vundhi basePath: "/expense" idhi em chestundhantey 
+	
+	ka 07-efs-sc.yaml, kubectl get sc (efs-expense created  )
+	ipudu manam claim chestaamu for that 
+	
+	create 08-efs-dynamic.yaml ( PVC, pod, service creation )
+	
+	https://github.com/DAWS-82S/k8-resources/blob/main/volumes/08-efs-dynamic.yaml
+	we should give storageClassName: "efs-expense" ( created SC name ) , ikkada volumeName vundadhu , follow and observe the step and change metadata names accordingly
+	
+	ka 08-efs-dynamic.yaml, 
+	ikkada aws EFS lo access points loki velli choostey manaki oka point create ayindhi ( /expense/ pvc-id ), and PV anedhi automatic ga create avutundhi Dynamic lo 
+	kubectl get pv
+	
+	 manam ikkada inkoka application  chesukummanukondi  /expense/another-volume vostundhi antey meeru multiple elastic file systems create cheyakunda oka project ki oka elastic file system ni create chesukuni ee access points maatram dyanamic ga create chesukuntaaranna maata  ( aws EFS access point lo choostey okkokka application ki okkokka access points create avutaayi antey oka EFS ni create chesi SC yaml file lo  basePath: "/expense" ani istey akkada "/expense/pvc-id (for-different applications different PVC-id creeates ) ani create avutundhi ( ikkada /expense anedhi frontend anukuntey , another component backend or componenets in backend like rating, reviews etc vaatiki maatram multiple access points create avutu veltaayai anna maata antey /expense(frontend)/pvc-id, /expense/pvc-id ( ratings ) alaaga 
+	 
+	 kubectl delete -f 08-efs-dynamic.yaml
+	 delete EFS in aws as well
+	 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--> k8 ni original ga stateless application kosamey teesukunnaru but k8 popular ayye koddi pulic nunchi demand vochindhi database ni kooda pettochu kadha ani apudu k8 vallu 
+	public demand ni tattukoleka ivanni start chesaaru PV, PVC lu ivanni 
+
+	so statefulset vochesindhi first ( first versions lo ledhu taruvata vochindhi later versions lo databases kosam design cheyalsi vochindhi statefulset ni 
+	 
+--> general ga Databases ni cluster ga vaaadutaaru ( like master and workernodes laaga ), singele ga vaadaru enterprise apps lo 
+	so first request masterki vostundhi --> master nunchi worker DB nodes ki veltundhi ( ikkada deni dB worker node staorage dhaanikey vuntundhi measns seperate storage for seperate worker node )
+	
+	usually Devops engineers ea databse mottanni take care cheyalsina avasaram ledhu but oka idea vuntey baaguntundhi databases gurinchi DB anedhi chaala antey chaala critical ( mana project lo edyna critical team vundhantey adhi DB team ea anna maata ), endhukantey data anedhi DB lo ney vuntundhi kaabatti, frontend backend poyina kooda adhi git repo lo vuntundhi anytime dhaanni up cheyochu but end customers yokka data savings, credit card data etc avanni DB lo ney store avutuntaayi, so ikkada store avutunnapudu manaki chaala critical applications vuntaayi ( like stock, banking, RBI laantivi ), vaatiki connection pool anedhi vuntundhi , application ( backend ) vochesi connection pool ki request chestundhanna maata,apudu connection pool anedhi DB nunchi connection teesukostundhi , ikkada connection pool edytey primary master vundho dhanni hit chestundhi ( oka vela primary master down ayitey next 10 sec nunchi 60 sec varaku connection pool connection kosam wait chestundhi ( heart beat check ) appatiki connection establish kaakapotey down ayindhi kaabatti, apudu inkoka master DB primary avutundhi again connection pool connection kosam ee primary master dhaggaraki veltundhi so ikkada connection dorikindhi anukundhaam, so request anedhi master ki vochindhi apudu master anedhi request ni any worker node ki pampistundhi 
+	
+	for example 3 worker DB node vunnayi kadha okko node ki okko seperate storage vuntundhi, ipudu CRUD operation anukundham create operation request vochindhi master dwaara 1st worker node ki vochindhi anukuntey ikkada all worker nodes sync lo vundaali so that create data anedhi 1,2,3 all worker nodes lo vuntundhi ilaa sync cheydaaniki configuration vuntundhi adhi chestey automatic ga sync lo vuntaayi apudu anni worker DB nodes yokka storages avi anni update chesukuntaayi aa create operation data ni ( endhukantey transaction data choosukovali ( create chesina data ) anukunnapudu again request master nunchi edyna worker node loki vellochu so apudu akada aaa data vundaali kadha andhukey anni worker DB nodes ni sync lo vundelaa choosukuntaamu, then we wiill get the create transaction data when you do read operation ( so create update delete operations ki cluster lo anni worker nodes oka dhaanikikokati inform chesukuntundaali ( means in sync lo vundaali ) so that we can perfom all operations in the cluster within all the worker nodes so, idhi clustering yokka main responsibility 
+	
+	see the diagramme in C:\devops-notes\kubernetes\diagrammes\k8-volumes
+	
+-->maximum DB ni k8 lo pettamu projects lo, but ikkada interview purpose kosam nechukuntunnam and telusukovaali kooda 
+
+StatefulSet vs Deployment
+==============
+1. Deployment is for stateless applications, generally frontend and backend
+
+2. StatefulSet is for stateful applications usually databases. ( meeru k8 lo DB ni use cheyaali anukunnapudu like mysql, semiDB like ELK, prometius, grafana ilaantivanni meeru 
+	k8 lo maintain cheyaali anukunnapudu ee statefulset anedhi mandatory anna maata because those are data related app's and they have some storage )
+	
+3. StatefulSet will have headless service, deployment will not have headless service
+4. PV, PVC are mandatory for statefulset
+5. pods in statefulset create in orderly manner with static names. statefulset-0, statefulset-1
+
+
+
+
+
+
+
+
+
+
+--> what is PV, PVC, PV vs PVC , storage service ?
+--> EBS vs EFS 
+--> what is statefulset and satetfulset vs Deployment ?

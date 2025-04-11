@@ -1,0 +1,55 @@
+
+																			Session - 58
+																		======================
+																		
+																		
+																		
+																		
+																		
+																		
+DaemonSet :
+----------------
+
+--> so intavaraku manam sets lo konni discuss chesaamu what are the sets we discuss
+	ReplicaSet  : the no. of replicas are continuously running for a pod
+	Deployment 	: useful at the time of deployment , Deployment creates replicaset, replicaSet creates pods whenever you want to change the version, we can use of Deployment 
+				  resource, it will creates new replicaset and proceed with rolling update, it is mainly for stateless applications				  
+	StatefulSet : useful for statefull apps like Db kind of apps we must create PV and PVC  all those thing 
+	DaemonSet   : idhi vochesi konchem special it make sure pod replica runs on every node ( so ipudu manaki 3 nodes vunnayi anukondi manam DaemonSet create chesinapudu 
+				  okkokka  node lo okkokka pod create avutundhi endhukala antey there is some advantage for it, server logs collect cheyadaaniki kaani, so meeru oka DaemonSet run chestey andhulo nunchi prati okka pod okkokka node lo okkakkati run avutundhanna maata endhukala antey there is some advantages 1. monitoring kosam 2.logs collection 3.metric collections etc )
+				  manaki linux server log vunde folder ekkad vuntundhi antey /var/log ( need to confirm ) 
+				  so manaki two containers vunnayi okato main container idhi user requests ni serve chestu vuntundhi, inkokati sidecar container idhi main container ki help chestuntundhi antey main container produce chesey logs /var/log/nginx/access.log anukuntey indhulo nunchi nonstop ga ee sidecar container logs ni teesukuni ELK ki push chestu vuntundhi so manaku pod logs anevi chaala important alaagey manaki nodes anevi kooda impotant ( ipudu manam oka EKS cluster teesukuntey 3 worker nodes vunnayi ipudu cluster lo edyna problem vochindhi antey adhi khachitam ga worker node loney ani meaning, alaagey okko node ki okko harddisk kooda vuntundhi kadha so okko node logs ni /var/log folder lo logs ni generate chestuntundhi, so manaki worker nodes enni vuntaayo teliyadhu based on autoscaling because worker nodes are ephimeral in nature but manaki oka worker node create ayinapudalla manam velli dhaanilo oka pod ni create cheyadam anedhi generally practically not possible so DaemonSet aney resource em chestundhantey, DaemonSet make sure a pod Replica run on each and every node , means oka node create ayinapudu ReplicaSet enti watch chestuntundhi evaryna by mistake pod ni delete chesina or creash ayina but ReplicaSet automatic ga inkokati create chestundhi alaaney DaemonSet it is continuously watching it make sure every node has a pod running means 
+	
+--> emptyDir --> temporary storage for a pod
+	hostpath --> filesystem path in the underlying worker node lo vunde path, it is not secure pods should not access host filesystem directly 
+	
+	but pod vochesi host system lo direct ga vunde folder ni mount cheyadam is it security risk or not ? it is not secure but DaemonSet is the only the one Exception for admins to collect logs and matrics oka vela manam DaemonSet ni vaadalsi vostey we can give readonly : true so i.e, hostpath, so host path anedhi only admins,especially in the usecase of DaemonSet maatramey use cheyaali actual ga for recommendation 
+	
+	create 20-deamon-set.yaml  
+	https://github.com/DAWS-82S/k8-resources/blob/main/20-deamon-set.yaml
+	ka 20-deamon-set.yaml
+	kubectl get pods -n kube-system -o wide  ( so ikkada choostey Deamon set 3  nodes vunnayi kaabatti, 3 pods create ayyayi and different node lo create ayyayi choodandi 
+	
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--> so ika manam k8 lo almost anni discuss chesaamu, ika manam production grade cluster vypu vellali, ippativaraku manam cluster create chesindhi eksctl pyna so adhi not 
+	production level actually , production level antey manam terraform use chesi create chesukuntey manakubetter ga vuntundhi ipudu manam default VPC lo subnets lo ee cluster create ayindhi means idhi manam control lo ledhu even sg and etc ni anni default ga vunnayi so ipudu mana own cluster create chesukundham production level oka
+
+--> see the eks diagramme to understand and create through terraform 
+		C:\devops-notes\kubernetes\diagrammes\eks.draw.io
+		
+	create terraform-aws-eks repo  ( so idhi only eks kosam eks production grade cluster ni elaa create cheyaali anedhaaniki  moving forward we will add some more for other improvements  refer below repo for code  
+	https://github.com/DAWS-82S/terraform-aws-eks
+	so last time manam sg akkada VM kaabati backend frontend DB ala sg VM's chesaamu but ikkada EKS cluster kaabatti manaki mottam maarutundhi so diagramme choostu what are the sg we want anedhi 
+	
+	here diagrammes choostoo sg folder ni modify chesukuntoo vellali 
+	we must watch the session atleast from 25:00 to 45:00 min varaku so that diagramme explations and sg variations artam avutaayi through diagramme 
+	
+	and manaki IAM roles kooda avasram control plane ki oka role and worker nodes ki oka role  create cheyaali 
+	
+	terraform apply one by one folders mentined in the repo https://github.com/DAWS-82S/terraform-aws-eks
+	
+--> so siva create chesina EKS cluster ni through terraform dwaara, dhanni manam teesukuni vaaddhaam avasaramytey adhi elaa create chesaaro telusukundham if we have time oka
+
+	so ee production grade cluster lo ney mana application install cheddamu through blur-green deployment, ippativaraku manam choosindhi rolling update actually rolling update ea saripotundhi more than enough and simple also , but blue-green anedhi konchem complex but we need to understand blue-green deployment we will deploy our backend application as blue-green deployment 
+	

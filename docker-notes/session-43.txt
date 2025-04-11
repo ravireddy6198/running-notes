@@ -1,0 +1,146 @@
+	
+															session-43
+														====================
+														
+
+
+
+
+
+
+
+
+
+
+--> we have to remember booting time and resource utilization w.r.t docker 
+--> we have to use userdata to create instance along with instance docker to be installed ( or through terraform we have to create this instance )
+--> windows lo docker slow ga vuntundhi resources ekkuva consume chestundhi
+
+
+--> creating one instance and install docker follow steps previous session-42
+
+--> docker run -d -p 80:80 --name my_nginx nginx   :-- it will create and run the docker nginx container with the name my_nginx
+
+--> docker exec -it my_nginx bash   :-- we are logged in to the container with name my_nginx (nginx container loki login ayyam)
+
+--> docker inspect my_nginx  :-- we have to inspect the docker container with name my_nginx ( we will get all the information about nginx json format )
+
+--> docker logs my_nginx  :-- we have to see the logs of my_nginx container 
+
+--> ippativaraku manam evaro raasina images ni use cheskunnam from now onwards we have to create our custom images using dockerfile
+
+--> Dockerfile : name should be like this 
+
+--> add docker extension in VS code 
+
+
+How to create custom docker images?
+
+Dockerfile --> used to create our custom images using instructions provided by docker
+
+RHEL9 == Centos9 == Almalinux9 ( we have this Almalinux9 used  all are same )
+FROM :
+======
+from should be the first instruction in docker file that represents base OS
+
+FROM <BASE-OS>:<version>
+
+FROM Almalinux:9
+
+
+how to build docker image?
+
+docker build -t <image-name>:<version> .  ( here . means docker file is in current directory )
+
+docker build -t from:1.0.0 .  ( this image is build ans saved in local )
+
+--> how to push local image to dockerr hub ?
+image should be unique so we have to use username, under username we have to create image name so that image under username is unique 
+
+docker build -t <docker-hub-username>/<image-name>:<version> .
+
+docker build -t ravi6198/from:1.0.0 .
+
+--> first login to docker hub in cmd it self 
+
+docker login -u <username>
+
+docker tag from:1.0.0 ravi6198/from:1.0.0   ( retag the image in local repo here ravi6198 is unique across all accounts)
+
+docker push ravi6198/from:1.0.0  ( pushing to docker hub ) 
+
+we can see the docker hub 
+
+RUN
+======
+RUN instruction used to install packages, configurations on top of base os. It executes at the time of image building
+
+FROM Almalinux:9
+RUN dnf install nginx -y
+
+docker build -t ravi6198/run:1.0.0 .
+
+--> if we run docker run -d <containerid> it will not run the container because it is executing /bin/bash command( it will not executing infinite times generally service running infinite times 24*7) here we have given only dnf install so that here RUN is used to install the package only not to run the command
+
+CMD
+======
+systemctl will not work in containers.. /etc/systemd/system/*.service
+
+--> generally in vms while booting process in linux automatically systemd accessed and run but in container it is not full OS so containers cannot access the systemd while booting process ( so here systemctl not worked in containers ) so we have to use manual commands to start nginx without systemctl
+
+CMD ["nginx", "-g", "daemon off;"]
+
+--> cmd lo manam ichey command container ni infinite times run cheyaali lekapotey container exit ayipotundhi
+
+while starting the service we used systemctl command when we enter this systemctl the above command is running in background generally in VMs we used right 
+
+docker build -t cmd:1.0.0 .
+
+still the CMD is not executing because below difference 
+
+RUN vs CMD
+=========
+RUN instruction executes at the time of image building(image creation)
+CMD instruction executes at the time of container creation
+
+--> so we have to use docker run command to execute CMD instructions 
+
+docker run cmd:1.0.0
+--> it is running on the foreground means screen is blocked while entering docker ps -a we have to see the status as exited because we enter cntrl+c in the midde we stop the run process for that  we have used  below command in detatched mode so it is running in the background 
+
+docker run -d cmd:1.0.0
+
+docker ps 
+
+docker rm -f cmd:1.0.0 or name 
+
+docker run -d -p 8080:80 cmd:1.0.0  ( host port 80 already in use but container port is still same because it is different container every container has 65535 ports )
+
+docker ps
+
+in browser check IP:8080 to check 
+
+--> we dont want to use cutom images we have created from the scratch if anything optimization required we dont know how to optimise the custom nginx image so that we will have to use nginx official image hereonwards
+
+
+
+COPY vs ADD
+=========
+COPY and ADD both copies the files to images. but ADD has 2 extra capabilities
+1. copying from directly from internet to the image
+2. extracts tar file directly into image
+
+Label :
+===========
+
+-> it will give the information about whose this image etc/systemd/system/*
+
+expose :
+===========
+
+--> this is information purpose on which port container is running
+
+ENV :
+======
+
+--> it is used for variables while creating this variables , these variables will be used inside docker container 

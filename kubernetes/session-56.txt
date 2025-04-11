@@ -1,0 +1,195 @@
+
+																	Session - 56
+																======================
+																
+																
+																
+																
+																
+																
+
+
+-->ippati nunchi meeru evaryna how do you expose to running on the applications in k8 to outside of the world ani adiginapudu manam using ingress controller ani cheppali  
+
+R53 --> ALB --> Listener --> Rule --> Target Group(VM)/Target Group(Pod)
+
+--> elow  is first step 
+
+eksctl utils associate-iam-oidc-provider \
+    --region <region-code> \
+    --cluster <your-cluster-name> \
+    --approve
+	
+--> oidc-provider ani vundhi idhi enti antey general ga red paltform  aws oka platform and k8 oka platform , here aws chaala pedda platform, and k8 is chinna platform but edyna kooda PAAS so oka platform EKS tana platform liki integrate chesukunnapudu ee IAM to integrate cheyalanna maata adhi endhukantey RBAC vochinapudu chooddamu 
+
+--> rendu platforms ni integrate cheyalantey authentication anedhikooda integrate avvali   ( refer https://github.com/DAWS-82S/k8-ingress/blob/main/readme.MD this repo idhi admin steps one time chestaaru  ), follow the steps mentined in the repo setup of ingress controller 
+
+--> so aa repo lo choosinatlu ga ivanni entantey oka EKS cluster anedhi oka different service and ALB anedhi oka different service, oka  EKS cluster ALB ni create cheyalantey dhaaniki konni permissions kaavali kaabatti refer IAM policy refer the repo 
+
+--> ingress controller ni aws lo aws-load-balancer-controller antaamu 
+
+	once all steps mentioned in the repo readme.MD file to follow and installa all steps
+	kubectl get pods-n kube-system ( ikkada choostey manaku LB ki sambandhinchina drivers anevi create avutunnayi running stste ) 
+	so ee drivers em chetaayi antey LB ni create cheyadam manage cheyadam automatic ga avvanni chestaayi 
+	
+--> so ipudu manaki multiple applications vuntaayi mana cluster lo mana domain is 
+	
+daws82s.online
+evaryna 
+app1.daws82s.online --> app1 related pods
+evaryna 
+app2.daws82s.online --> app2 related pods
+so idhi set cheddam first for that app1 oka image and app2 oka image laaga set chesi dhaanni manam k8 lo deploy cheddam refer below 
+
+	create k8-ingress repo
+	create Docker file in k8-ingress repo
+	https://github.com/DAWS-82S/k8-ingress/blob/main/app1/Dockerfile
+	docker build -t ravi6198/app1:1.0.0 . ( cd /k8-ingress/app1 ) here docker login required 
+	docker push ravi6198/app1:1.0.0  ( now image is ready , next we need to run the image see below )
+	mana pod ni direct rayamu Deployment raatamu indhuloney anni vuntaayi pod replicaset etc for that 
+	create manifest.yaml ( cd /k8-ingress/app1 )
+	https://github.com/DAWS-82S/k8-ingress/blob/main/app1/manifest.yaml
+	ka manifest.yaml ( cd /k8-ingress/app1 )
+	kubectl get pods  ( 2 replicas running )
+	kubectl get svc  ( service is running )
+	
+	but ipudu idhi normal ga kadha manam chesedhi pod and service, but ipudu EKS ni LB ni elaa integrate cheyaali antey i.e,a resource calleed ingress resource, idhi manaki k8 lo vundhi idhi em chestundhantey ilaa app1.daws82s.online (host based ) set chestundhi general ga flow elaa vuntundhantey 
+	
+	client request --> Ingress managed LB --> Ingress -->service --> different pods ( ikkada routing rules anevi ingress lo set chestaamu 
+	general ga manam choosamu labels vs annotations annapudu labels anedhi k8 internal resources ni select chesukovadaaniki use avutundhi ani choosamu, meeru choosuntey node selector lo kooda labels use chesukuney manam select chesukunnam, service pod ni elaa attac avutundhantey labels use chesukuney attach avutundhi, replicaSet pod ni elaa attach avutundhantey labels use chesukuney select avutundhi so labels are used as selectors for k8 resources , annotations are used to select the external resources ani cheppamu so , ikkada ALB anedhi external resource k8 ki 
+	
+	so ikkada annotations ni set cheyaali manamu apudu ee ingress velli ipudu LB ni create cheyadam kaani , listner ni create cheyadam kaani, rule ni create cheyadam kaani, target group ni create cheyadam kaani evrything ingress ea handle chestundhi so adhi elaa handle chestundhantey through annotations 
+	
+	ACM certificate required for HTTPS for that goto ACM --> create certif --> *.daws82s.online --> create --> create records for validation --> after 1 min certif issued 
+	kubectl delete -f manifest.yaml  ( we added the ingress resource so delete the resources ) 
+	so everyna mana load balancer ni 'app1.daws82s.online' ani hit chestey adhi app1 service ki vellali, app1 service ki vellindhi antey ikkadi nunchi app1 ki sambandhinchina pods ki veltundhi 
+	
+	ka manifest.yaml ( afterr adding ingress )
+	kubectl get ingress (ikkada choostey ingress means ALB create ayindhi )
+	so ikkada ALB create ayindhi and Listerner and target groups ( ikkada choostey ingress em chesindhi service ni read chesindhi ee service ea pods ki attach ayindho telusukuni aa pod ip address ni ee target group lo add chesesindhi 
+	
+	ipudu browser lo ALB DNS ni hit chestey response raadhu endhukantey mana listener rule lo app1.daws82s.online ani isteney pod nunchi response vostundhi otherwise raadhi ( need to check with ALB DNS through browser )
+	create record for *.daws82s.online for the ALB DNS then in browser check app1.daws82s.online we will get the response 
+	so idhi application1 anedhi start ayindhi mottam ipudu app2 ( inkoka project ) anedhi vochindhi, apudu app2 vallu kooda docker files raasukuntaaru and manifest files kooda raasukuntaaru 
+	
+	create app2 folder and refer below repo for Docker files and manifest files 
+	https://github.com/DAWS-82S/k8-ingress/tree/main/app2
+	ka manifest.yaml
+	kubectl get ingress
+	soipudu ingress em chestundhantey actual ga ingress em cheyaali LB ni create cheyaali but LB ni create chesey mundhu group.name vundhi kadha joindevops antey ee group to already edyna LB create ayindha ledha ani chesukuntundhi ( tags lo choostey telustundhi already joindevops group to ti LB create ayindhi ani ) ikkada adhi create ayindhi kaabatti LB, ipudu kottaga oka rule ni add chestundhi ( thats why group name is so important ) 
+	
+	now here LB listener lo 3 rules vochaayi ( app1, app2 ), so seperate seperate target group create ayuntundhi  so ipudu browser lo nenu appe.daws.online ani istey app2 ki vellali
+	
+	so ipudu okeyLB ni pettukuni manam enni applications or enni projects ayina k8 cluster lo install chesukuni manam expose cheyochu , expose cheyalanukunna vaatini expose chestaamu lekapote ledhuso, mana dhaanilo only frontend component ki maatramey expose chestaam migata vaatiki avasaram ledhu 
+	
+	so roboshop project anedhi start chesinapudu ikkada roboshop ki seperate ingress rasukuntaamu apudu saripotundhi so, ikkada mana project ingress control use chesey cheddam may be in next classes ok 
+
+Ingress resource
+=================
+Ingress Controller is used to provide external access to the applications running in kubernetes. We can set the routing rules through ingress resource either path based or host based. in EKS ingress resource can create ALB, Listener, Rule and target group. Ingress is attached to service, so it fetch the pods and add them to target group
+
+--> we have a task for frontend Deployment using ingress controller ( take the k8-expense repo and take frontend just remove LB and add ingress resource just give it a try ) 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+RBAC --> Role based access control
+====================================
+Authentication and Authorization
+
+Nouns and Verbs
+
+Nouns --> what are the resources we have
+Verbs --> What actions you can take on those resources
+
+IAM
+Nouns --> EC2, VPC, R53, CDN, EKS, IoT, etc.
+
+Fresher --> deleteEC2 --> no
+CRUD
+Fresher --> readEC2
+Junior --> createEC2
+Senior --> creaEC2, readEC2, updateEC2
+Team lead --> deleteEC2
+
+--> so resources and actions rendu imporatant authorization set chestapudu ea resources ni access cheyaali dhaani pyna ea action teesukovaali 
+--> so k8 lo resources vunnayi like pods, services, Deployments, ReplicaSets veetilo kooda manaki create access vundhi read access vundhi, update accss and delete access kooda vunnayi veetini kooda manam join ayina vallandhariki ventaney anni access li ivvamu vallu by mistake edyna wrong chesy chance vundhi kaabtti, konchem konchem vallaki project lo grip perigey koddi vaallaki roles anevi change chesukuntoo veltaamu so dheeni kosam manaki ikkada RBAC vundhi indhulo konni objects vunnayi 
+
+User, Role, Rolebinding
+
+--> oka user vuntaadu atanu oka
+	expense-trainee ( role-name ) vuntundhi  ataniki--> read access to expense namespace ( expense namespace lo vunde resources ki read access anna maaata 
+	so ee role ni manam bind cheyaali
+
+role should be bound to user --> through rolebinding
+
+EKS is one platform, AWS is another platform  ( so ikkada platform annapudu own authentication vuntundhi k8 is a platform )
+
+k8 has its own RBAC, AWS has its own ( so ikkada choostey aws lo k8 vundhi kaabatti like EKS in AWS so ikkada manam k8 ki oka user and pswd ni create chesi and aws ki oka username and psswd create chesi inni create chestoo  velete clumzy ayipotundhi, ila EKS platforms laantivi enno vuntaayi AWS lo so platform platform ki ila create chestoo veltey clumzy ayipotundhi kaabatti aws dheenni elaa treat chestundhantey )
+
+AWS integrates IAM service as authentication mechanism to EKS  ( ikkada AWS em chestundhantey IAM users ki, IAM user ney authentication laaga use chesukuntundhanna maata )
+
+--> now let us assume suresh aney oka traiee join ayyadu ataniki manam oka IAM user ni create chestaamu  before that tanaki EKS permission ivvali kadha dhaanikosam 
+	a user should describe EKS to connect it.. ( idhi minimum access ea user ki ayina kooda ) for that
+	create policy first --> select service as EKS --> read lo select DescribeCluster --> specific resource add arn this account, (resource region: us-east-1) lo vundey cluster (name :expense) EKS cluster  ki suresh ni describe cheyaalani -->add arn --> policy name : ExpenseEKSDescribe --> create policy (end )
+	
+	now create suresh IAM user as a traine --> attach policy ExpenseEKS Describe --> next --> create user 
+	so below steps 
+
+1. create IAM user and provide describeEKSCluster access ( ataniki em cluster CRUD access ivvakoodadhu oka vela istey console loki velli delete cheyochu )
+2. we need to create role and rolebinding resources
+
+--> create k8-RBAC repo
+	create role.yaml
+	https://github.com/DAWS-82S/k8-rbac/blob/main/role.yaml
+
+aws-auth configmap need to be configured to connect EKS and IAM ( idhi aws-auth only EKS lo maatramey vuntundhi role ni create chesi role bind chstey saripodhu aa  IAM user vundani cheppadaani ee aws-auth ni use chesi konchem configuration cheyaali so that apudu EKS ki telustundhi aa user IAM lo vunndo ledho ani  )
+
+	kubectl get configmap aws-auth -n kube-system ( we can see the aws-auth ) 
+	kubectl get configmap aws-auth -n kube-system -o yaml ( here we will get the yamlfile of that aws-auth resource take this and paste in the aws-auth.yaml file this is Configmap resource  )
+	now EKS vaallu cheptaaru elaa edit cheyalani 
+	now users ni map chesaamu role  ki , taruvata admins em cheptaarantey suresh ki mail papmistaaru emani antey  ( so this all about k8 admin activitity )
+	
+mail suresh about his config is done, he can login, now suresh em chestaadantey ithani dhaggara aws configure security credentials emi vundavu apudu atadu create chesukuntaadu atani credentials ni ( goto IAM user --> go to suresh --> create security credentials ) 
+AKIAUSW45M2WKJH4AVVH
+
+	oka ec2 insance create cheddamu first but ec2 instance create avvadaaniki time padutondhi kaabatti direct ga work station loney 
+	aws configure --profile suresh ( suresh profile ni configure chesaamu )
+	aws sts get-caller-identity --profile suresh ( here we can see it is suresh )
+	taruvata atanu em cheyalantey EKS configuration techukovali adhi elaa vostundhantey 
+	
+	create EC2 instance idhi suresh laptop anukuntey  ( before creation takes some time ) ( and idhi expense project ki sambandhinchina server indhulo admin credentials emi vundavu ) 
+	login to server  and cluster to connect avvali kaabatti kubectl install cheyaali 
+	so idhi expense sambandhinchina project for example suresh access chestunnadu anukundhaam do suresh aws configure give the credentials 
+	aws sts get-caller-identity ( ipudu idhi manaki em cheptundhi antey manam ichina suresh credentials suresh vi ani cheptundhi ) 
+	so suresh ki cluster describe access vundhi kaabatti we can use this command to get the access
+	
+aws eks update-kubeconfig --region us-east-1 --name expense
+
+--> so pyna command ni run chesinapudu emoutundhi akkada choostey .kube folder create avutundhi  ( ls -l --> cd .kube --> cat config --> so ikkada choostey meeru ik cluster to epudu interact ayina kooda idhi ee file ni carry chestundhi means config file ni ) so for suppose nenu
+	
+	kubectl get nodes  antey ea cluster ani, so ee kubectl aney command ee .kube lo vunde ee kube config anedhi .kube ane directory lo config aney file lo vuntundhi 
+	so ikkada choostey mee cluster edhi and dhaani authentication ivvanni ee config file nunchi validate chestundhi anna maata ee kubectl command 
+	kubectl command epudu kooda .kube lo vundey config file ni refer chestundhi 
+	so now ikkada suresh credentials vunnayi anni vunnayi kaabatti now 
+	install kubectl
+	sudo mv kubectl /usr/local/bin/kubectl
+	kubectl get nodes ( suresh cannot list the nodes means suresh nodes ni choodaledu )
+	kubectl get pods ( now suresh pods choodagaladu in default namespace lo )
+	kubectl get pods -n kube-system ( he cannot see )
+	kubectl get service ( default name space services ni kooda choodaledu ) 
+	so manam edytey access ichaamo adhi maatramey access cheyagaladu ) 
+	kubectl get service ani kottganey adhi config file lo ki velli aa config file ni refer chestundhi ilaa refer chesi k8 cluster to interact avutundhi interact ayyetapudu suresh ki sambandhinchina credentials ni k8 cluster ki pampistundhi  apudu k8 cluster em chestundhantey dhaaniki IAM user inforamation vundhi kadha so IAM info vunnapudu ok ee person suresh ani artam chesukuni suresh ki em access ichaamo choosukuni vaatini maatramey restrict chestundhi 
+	
+	ipudu suresh senior ayyadu ataniki annintiki access iddham apudu k8 admin ki inform chestaamu we want more access for suresh then he will give resources: ["*"] ( refer role.yaml file ) means give all read access then k8 admin apply this yaml file taruvata k8 admin use ki cheptaadu nenu alla ccess apply chesi ichaanu ani now you can try ani cheptaadu apudu user suresh 
+	kubectl get service ( now he can see the service ) 
+
+veetini use chesukuney suresh atanu EKS cluster ni access cheyaali veetiki vunde access chaala takkuva 
+
+
+
+
+
+
+
+-->  meeku oka application vundhi andhulo 10 micro services vunnayi dhaanilo oka 10 services .net related and 10 services node.js related what is your idea on the 
+	 implementation of the CI/CD ? from the start he wants the approach ? 

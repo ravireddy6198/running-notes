@@ -1,0 +1,229 @@
+
+
+															Session -37
+														====================
+														
+														
+														
+														
+														
+														
+
+
+Loadbalancing anedhi prati application lo mandatory dheeni vallaney manaki high availability vochindhi
+scaling : traffic periginapudu app infra peragadaaniki auto scaling use chestunnam 
+
+--> any modern apps like ott platforms and ecommerce sites mostly we used LB and ASG Both are important
+--> one LB can have multiple Listners
+Rules:
+	*.app-dev.daws82s.online --> LB
+	dfdsa.app-dev.daws82s.online  --> yes I am LB ( default fixed response)
+	http://backend.app-dev.daws82s.online --> forward that to backend target group
+	http://analytics.app-dev.daws82s.online --> forward that to analytics target group
+	health check
+		every 10 sec
+		2 health success --> instance is healthy
+		2 health failure --> instance is failed
+		
+Auto scaling 
+==============
+
+Terraform+shell+Ansible+autoscaling
+Launch Template : instance ni launch cheyadaaniki kaavalsina template (ami, sg, vpc, subnet, instance type etc )
+	  Ami : updated latest version backend Ami ( Install programme runtime, create user, create app folder, download code, install dependencies, create 		systemctl services, configure D_URLs, estart app )
+		
+Terraform --> instance launch -->copy file using file provisioner --> connected to instance through remote-exec --> run play-book
+
+stop tthe instance --> take AMI --> delete the instance
+
+we have AMI ready --> ee Ami ni teesukelli Auscaling ichesaamantey adhi servers ni run chestundhi
+
+
+create of backend target group
+create launch template input -->  latest AMI id ,update launch template version 
+ASG ki input -->launch template latest version, then ASG refresh the instances
+
+		apudu ASG  rolling update chesi
+		new instance create chesi, old instance delete chestundhi   ( this process will take 30 min hardly when we are going to new release in real time)
+		
+	now server are ready and target group also ready then we ahave to got listner lopaliki velli lintner rule anedhi update chesukovachu
+	linstner rule lo  --> evaryna request ila istey backend.app-dev.daws82s.online ani --> forward that to backend target group
+	
+ASG policy : 
+------------
+
+if avg CPU utilisation is crossing 70% create instances
+scale out --> create new instances
+scale in --> remove instances
+
+malli manam kotta deployment ki vellinapudu
+	if instance id changes provision trigger chestundhi taruvata stop instance chestundhi , take ami triggered ,launch template changes (with new changes ), no backend target group changed, ASG lo instance refresh okkati jarugutundhi, Listner rule change avvadhu, ASG policy change avvadhu, 
+	
+	epudytey kotta release ki veltaamo konni maatramey change avutaayi anni change avvavu like above two line mentioned 
+	
+	--------------------------------------------------------------------------------------------------------------------------------
+	todays LAB started 
+now start all the infra 
+
+just hit *.app-dev.daws82s.online through vpn --> we will get default response from ALB 
+
+--> depends on : attribute lekapotey resources lo terraform anedhi parallel ga resources annintini create chestundhi 
+
+--> ALB anedhi urls ni intelligent ga scan chestundhi 
+	1. host based routing
+	2. path based routing (context)
+	
+amazon.daws82s.online --> amazon
+daws82s.oline/amazon --> path based or cotext based
+
+m.facebook.com --> mobile target group
+netbanking.icicibank.com
+corporatebanking.icicibank.com 
+
+--> we have already configured backend just apply terraform for backend then backend configururation applied totally with ansible and shell and ami, update ASG instance refresh etc 
+
+		configured backend
+		stop the instance
+		take ami
+		delete instance
+		launch template modify
+		ASG create avutondhi
+		
+now we have to hit the below urls and see the success response 
+	http://backend.daws82.online/
+	http://backend.daws82.online/health
+	http://backend.daws82.online/transactions
+	
+	
+now backend setup completed with ALB and ASG
+ipudu manam malli terraform apply ani koditey adhi malli kotta version ni relase chestunnaru ani meaning ( producton lo malli malli terraform apply cheyakoodadhu kotta version vochinapudu maatramey run chestaaru)
+	kotta version antey manaki ansible roles comon tasks lo main.yaml lo last step download the app code ansible.builtin.unarchive lo version v2- v3 ga change cheyadam so that terraform apply kottinapudu pyna anta cheppina vidham ga mottam configure ayi v3 ni release chestundhi idhi kotta realse cheyadam meaning
+	
+manam version kooda parameter rise chesi ansible-pull command lo pampistey argument ga v3 ani app code v3 ni teesukunitotal backend ni setup chestundhi (ci/cd lo vostundhi )
+
+
+--> joinsdevops --> anedhi oka golden AMI anukuntey
+
+	backend team vaallu ee golden ami teesukuni
+		ansible+nodjs install chestaaru means aa ami lo --> Joindevops AMI + Ansible + nodejs install ayi vuntaayi
+		
+	shipping team vaallu ee golden ami teesukuni
+		ansible+java install chestaaru means aa ami lo --> Joindevops AMI + Ansible + java install ayi vuntaayi
+		
+so that manam ee AMI's to deployment time ni tagginchochu backend configuration process lo manaki ee golden AMI's ni use chesi deployment time ni taggincha vachu when we are going to new release ( existing taken AMI lo terraform apply kottinapudu total backend setup avvadaaniki time padutundhi because ansible need to configure the backend adhey golden AMI's lo already preconfigure ayi vuntaayi manam just App code ni change chestey saripotundhi
+
+AMI create avvadaaniki 2-3 min padutundhi dheeni time tagginchalemu )
+
+backend setup completed-
+----------------------------
+
+now front ent setup starts
+------------------------------
+we have completed database setup for databse and backend now frontend starts, LB anedhi backend ki front end ki simlilar laagey vuntundhi databse ki kooda LB vundaali but manam ikkada cheyatledhu endhukantey adhi aws service kaabatti aws ea manage chestundhi so not required LB for databse 
+
+--> frontend ki LB anedhi public kaabatti ea Listner use cheyalantey https (443) use cheyaali antey ssl certificate vostundhi indhulo
+
+SSL/TLS certificates :
+---------------------------
+--> mana dhaggara edya domain vunnapudu 
+	daws82s.online --> certificate teesukovaali
+	
+	.crt means certificate authority
+	
+	
+--> we have a certificate authority in the market, veellu vochesi mana dhaggara nunchi .crt file teesukuntaaru(.crt file lo domain, country, type of business, address, company name  etc vuntaayi this is public file ) ivanni teesukuni vaallu manaki oka key istaaru ( private key ), aa private key ni manam teesukuni mana servers lo pettukovaali
+
+
+ certificate authority : verisign, letsencrypt ( world wide well known companies )
+
+
+
+evaryna mana website ni request chessaranukoni
+joindevops.com ani --> ee joindevops.com ki evaru certify chesaaru ani browser ki telustundhi oka vela well known authorities verisign anukondi ee company certificate provide chesindhantey browser ki telisipotundhi idhi particular ga joindevops nunchi vostundhi madyalo verey ea third parties leru madyalo ani
+https ki joindevops ki madyalo data anedhi encrypt ayi transfer jarugutundhi, (browsers lo public key (.crt file ) already vuntundhi private key mana dhaggara vuntundhi( well known companies certificates anni browser lo install ayipotoo vuntaayi))
+browser sends data to servers using encrypted key, join devops has the private key  vuntaaro vaallu maatramey decrypt cheyochu ( private key anedhi mna join devops servers lo pettukuntaam kaabati so it can decrypt) idhanta manaki kanapadadhu automatic ga jarigipotundhi
+
+SSL termination antey frontend LB ( is is entry point ) dhaggarey terminate chestaam taruvata request backend ki veltundhi akkada SSL avasram ledhu (http is enough ) SSL termination anedhi frontend LB lo cheyochu
+
+so manaki certificates kaavali front end LB create chesey mundhu
+
+ACM ( Amazon certificate manager ):
+-------------------------------------
+manam manual certificates ni server pette kantey manaki aws lo oka service vundhi adhey ACM , (idhey certificates issue chestundhi)
+
+creation process :
+--------------------
+
+open ACM --> request -->next --> give domain name (daws82.online) --> go down click request --> certificate created
+we have to prove ourself ee domain mandhey ani apudu ACM dashboard lo manaaki create record in route 53 vuntundhi adhi click chestey --> it will show your domain name already selected --> click create records --> ACM is validating your domain and issuing the certificate ( this step is validation for checking to your domain is yours )
+
+ee certificates ni manam front end LB ki attach cheyaali
+
+demo through console
+-----------------------
+create LB process--> in Listners select https:443 and in --> default SSL/TLS server certificate section select from ACM and delect certificate -->create LB 
+
+this is the theory part 
+
+now we have to perform all through terraform 
+
+70-acm :
+-------------
+
+https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate
+
+for validation 
+
+https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate_validation
+
+create 70-acm
+main.tf
+provider.tf 
+variables..tf
+
+terraform apply
+
+
+creation of 80-web-LB:
+--------------------------
+
+creation of web-alb sg and expose sg_ids 
+
+80-web-alb
+
+create 
+main.tf
+variables.tf etc
+
+terraform apply 
+please go to code walkthrough
+
+finally we can see 
+
+https://anything.daws82.online/     : we will see the fixed response 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+lindein post to see the ssl/TLS (part-1 and part-2) cerificate article in joindevops 
+see a video on how https works in youtube

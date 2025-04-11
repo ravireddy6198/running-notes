@@ -1,0 +1,119 @@
+
+																		Session - 63
+																==============================
+																
+																
+																
+																
+																
+																
+
+CICD
+----------------------
+Continous Integration --> jenkins
+
+Project Infra
+Deploy applications
+
+It is the way of integrating the code from source and create artifact. in between source and creating artifact we need to install dependencies, run unit test cases, scans, etc. instead of this manually we can automate through continuous integration process... We are using Jenkins for CI.
+
+take one server ( in olden days manually deploying applications ) 
+--------------
+git clone <url>
+npm install --> downloads dependencies
+npm test --> unit test cases
+sonar-scan
+zip --> zip the application
+
+store the application into some other artifact server
+
+--> pyna cheppina vidham ga anni steps ni manam ikkada oka server teesukuni andhulo annitini integrate chestaamu aa server ea jenkins server 
+
+Jenkins is a plain webserver, if you install plugins ( functionalities )  then jenkins can connect with other tools.
+
+--> so CI anedhi oka concept jenkins is the one of implementation alaagey manaki github actions and alaagey gitLab CI , Bitbucekt actions, Circle CI anni kooda CI implementations anna maata  ( CI concept is same for all tools )
+
+--> take one EC2 (t3 small ) and connect it after that to setup jenkins in the EC2 server, we have to use below commands 
+
+
+sudo curl -o /etc/yum.repos.d/jenkins.repo \
+    https://pkg.jenkins.io/redhat-stable/jenkins.repo
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+{sudo yum upgrade --> takes too much time, we can skip}
+# Add required dependencies for the jenkins package
+sudo yum install fontconfig java-17-openjdk  ( jenkins ni java lo develop chesaaru kaabatti java install cheyaali jenkins kosam ) 
+sudo yum install jenkins
+sudo systemctl daemon-reload
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+
+sudo cat /etc/yum.repos.d/jenkins.repo ( adding jekins repo ) 
+
+jenkins is running on port 8080 ( install suggested plugins ) --> create one admin user --> save and continue -->now we can see the jenkins home page 
+
+in jenkins everything is called as job.. when you trigger the job it is called as build
+
+
+pre-production shoot post-production
+
+in any job we have three steps common i.e., pre-build, build, post-build
+
+--> create new-item --> freestyle --> in configuration --> build environment --> build steps --> add build steps as Execute shell --> echo 'hello-world' --> apply and save --> build now  ( build exeution starts we can see the console output for the result ) 
+
+	again goto same job ( hello-world ) --> in configure do some changes --> add build steps few more like sleep 5, echo "hello-again " --> save & apply --> build now 
+	
+	below are the disadvantages of freestyle job 
+
+manually created infra vs IaaC
+-------------------------------
+1. you can't restore if something goes wrong
+2. we can track we did the changes.
+3. can't reuse
+4. no review of changes
+5. no version control
+
+if you make it as pipeline and keep it in git
+
+pipeline
+------------
+
+-->pipeline means okko stages run chesukuntoo vaati output ni next vaatiki inputs ga istoo velladam anna maata ( example ki git run stage  --> sonar run stage --> maven --> build image ) 
+
+--> goto dashboard --> create new-item ( hello-pipeline ) --> select pipline --> in advanced project options select hello-world pipeline --> apply & save --> build now 
+
+--> managed jenkins --> pipeline stage view plugin needs to be installed  then we can see the stage wise result -->goto dashboard --> open the pipline job ( hello-pipeline )--> we can see the stage view 
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+    }
+}
+
+--> now we can see the above pipeline script is from git ( pipeline script from SCM ) means ipudu mana pipeline script ni git nunchi refer chestaamu apudu manam easy ga track chesukovachu changes ni for that create learn-jenkins folder and create one Jenkinsfile in VS code as well as git refer below repo 
+
+	https://github.com/daws-81s/learn-jenkins/blob/bab8c76fdc5166d5bf56606f3bff8b0becf40018/Jenkinsfile      ( so this is declarative pipeline )
+
+--> goto dashboard --> create new-item ( pipeline-project ) --> select pipline --> in advanced project options select pipline script from SCM --> git --> give repository 
+	URL(public repo kaabatti credentials avasaram ledhu ), branches to build as */main, Script Path as Jenkinsfile ( name of jenkinsfile name ) -->apply & save --> build now--> we can see the console output once build got success   
+	
+	job sucees ayina failure ayina some condtions like post actions, we have to include in the file refer below ( post build section ) 
+	
+	https://github.com/daws-81s/learn-jenkins/blob/623354df1c2384855cc2ef7140cb71f765378120/Jenkinsfile
+	
+--> ikkada mana code direct ga deploy avutundhi idhi general ga dev and satge ki ok but prod ki vochesariki direct deploy avvadhu akkada oka CR tool vunutndhi just like ticketing tool idhi manam taruvata choostaamu 
+
+--> terminate jenkins server
+
+
+
+
+
+
+--> what is CI/CD ?
+--> write a jenkins pipeline code to ask in interview ? 

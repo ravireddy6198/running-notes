@@ -1,0 +1,217 @@
+
+																			Session - 55
+																		========================
+																		
+																		
+																		
+																		
+																		
+
+
+
+
+
+--> yesterday manam poorti ga Helm gurinchi discuss chesaamu , helm is a package manager to deploy custom or open source applications into k8, we can use helm to templetise 
+	the manifest files also , manaki helm lo vunde folder structure vochesi Chart.yaml, values.yaml and open source application gaani evyna deploy cheyalanukuntey helm repo add ani cheppesi repo ni add cheyadam, and then helm in commands vochesi helm install, helm upgrade and then helm history and helm ni roll back cheyadam i.e., all about helm
+	
+
+Selectors
+==============
+--> manam ippati varaku kubectl apply ani hit chestey em jarugutundhi antey manaki scheduler aney component vuntundhi ( idhi architecture lo vostundhi ) but for now apply 
+	kottinapudu ee scheduler aney component mana manifest file ni teesukuntundhi so teesukuni it will decide where to run your pod means ea node lo run cheyaali ani scheduler anedhi decide chestundhi but sceduler run cheyakunda manaki control vundalantey we need to use selectors, mana last time choosamu topology ki  nodeSelector: az: 1a ani ichaamu apudu selector anedhi dheenni (1a) choostundhi apudu ee scheduler mana manifest file ni mottam scan chesi usr emyna preference ichaada ani check chesukuntundhi, manam emi preference ivvakapotey then it will scdule on the random node means ea node ayitey resources kaali ga vunnayo , ea node ayitey ekkuva free ga vundho decide chestundhi runtime lo otherwise manam edyna preference istey it can decide that ( see 02-ebs-static-pvc.yaml for nodeSelector ) 
+
+Scheduler --> it will decide where to run your pod
+
+nodeSelector:
+	az: 1a
+	
+--> toay topic are 
+	
+taints and tolerations
+affinity and anti-affinity
+
+	veetini use chesi manam sceduler ki inform cheyochu ekkada cheyaali anukuntunnamu ani ok
+	
+taints and tolerations : 
+------------------------
+-->  nodeSelector:
+    topology.kubernetes.io/zone: us-east-1a
+	
+	so manam 1c ichaamu pod create cheyamani 1c lo but worker-nodes 1c lo create avvaledhu cluster create chesinapudu so what happens is that pod created or not ?
+	create 01-node-selector.yaml in k8-selectors repo ( create k8-selectors repo first )
+	https://github.com/DAWS-82S/k8-selectors/blob/main/01-node-selector.yaml
+	git push, ka 01-node-selector.yaml ( cd k8-selectors)
+	kubectl get pods ( status pending means eppatiki pending lo vuntundhi endhukantey 1c lo worker-nodes assalu levu apudu pod ela create avutundhi 1c lo )
+	so idhi hard rule node-selector anedhi , so k8 dorakkapotey alaaney pending status lo vunchutundhi 
+	kubectl delete apply -f 01-node-selector.yaml
+	
+	so k8 lo face chesey errors oka saari choostey ippativaraku
+
+Errors in K8
+==============
+ErrImagePull --> if node is not able to pull the image
+CrashLoopBackOff --> Container is unable to start
+Pending --> worker node not availalbe in that AZ, PVC is not bound to PV
+ContainerCreating --> PV, PVC lo problem ( eppatiky error alaagey vuntey ) 
+
+taint --> paint or pollute
+
+--> taint anedhi manaki terraform lo vochindhi akkada taint antey ipudu evryna manam terraform lo terraform dwaara create chesina resources ni manual ga aws loki login ayi dhanni corrupt chesaaru anukondi apudu akkada mottam configuration edit chesi corrupt chesaaru apudu manam velli vaatini anni vetiki sari cheyalantey manaki aa intrest ledhu apudu manam em chestaamantey tarrform lo resources ki taint kottesamantey ( terraform taint awsinstance.expense ) , taruvata next terraform apply lo adhi malli recreate chestundhi anna maata that means rource is polluted, resource is corrupted but here k8 lo 
+
+if you can taint the node, scheduler will not schedule any pods on to that node  ( see the radme.MD file in the k8-selectors repo ) 
+
+--> kubectl get nodes --show-labels ( ikkada manam oka dhaanni teesukuni taint cheddamu here take second one  )
+
+	kubectl taint nodes ip-192-168-43-212.ec2.internal hardware=gpu:NoSchedule  ( ikkada em cheptunnamu ee node lopaliki vetini schedule cheyoddu ani cheptunnamu ) 
+	 nodeSelector:
+    topology.kubernetes.io/zone: us-east-1a  istunna ( see  01-node-selector.yaml ) ikkada 1a lo two nodes vunnayi andhulo manam oka dhanni taint chesaamu so ipudu pod ekkadiki veltundhi and i selected the pod in 1a, so manaki kindhi vidham ga worker-nodes vunnayi
+	
+	17.182 --> 1b
+	43.212 --> 1a and tainted
+	51.139 --> 1a
+	
+	simple naa preference 1a AZ lo vundey nodes, andhulo 2 vunnayi okati taint chesundhi, so ipudu 51.139 ki vellali right 
+	git push,  ka 01-node-selector.yaml
+	kubectl get pods ( pod is running )
+	kubectl get pods -o wide ( here we can see pod created in the node 51.139 ) 
+	
+	so endhuku taint chestaamu antey manamu manaki evyna special hardwares vunnayi anukondi , manaki k8 lo chaala projects run avutuntaayi andhulo konni AI, ML ki sambandhinchina worker-nodes vunnayi and andhulo konnintiki entantey special rules vuntayana maata oka special hardware gaani, different things vuntaayi anna maata vaatiki so alantapudu aa particular nodes ni manam taint chesaamu antey then verey projects sambandhinchina pods anevi akkada schedule avvavu okay
+
+NoSchedule antey --> order ( schedule cheyoddu ani warning) 
+PreferNoSchedule --> request( kudiritey scedule chey ani so request ayinapudu schedule vintundhi ani manam cheppalemu )
+NoExecute --> already few pods are running , ( already konni run avutunnayi ikkada run ayyevi kooda evict ayipotaayi anna maata 
+
+--> so ipudu manam 51.139 kooda taint chesaam anuko emoutundho chooddamu apudu em avvali nenu NoExecute antey em cheptunnanu k8 ki already run ayye vaatini kooda execute 
+	cheyoddu and future lo em vochina teesukovaddu ani meaning 
+
+	kubectl taint nodes ip-192-168-51-139.ec2.internal hardware=gpu:NoExecute ( so ikkada node ni taint chestoo k8 ki cheptunna hardware=gpu:NoExecute ani )
+	kubectl get pods ( now we can see no pods are there means created pod deleted because of taint the nodes )
+	
+	oka vela manaki avasaram lekapotey untaint kooda cheyochu 
+	so taint chesaamu antey enti aa project resource ni kooda adhi accept cheyadhu , so taint chesina vallu em cheyalantey toleration ivvali ( toleration meaning allow )
+
+toleration --> allow
+
+	so ipudu 2 nodes taint chesunnamu nenu dhanni tolerate cheyaali for that 
+	create 02-toleration.yaml in k8-selectors repo
+	https://github.com/DAWS-82S/k8-selectors/blob/main/02-toleration.yaml
+
+a dedicated worker nodes are there for project savings bank project, it means any other project related pods will not be scheduled here, but savings bank vaalley add chesukovalantey elaa, so vaallu toleration add chesukovali 
+
+--> so so tolerate chestey emoutundhi taint chesina vaatiki kooda k8 consider chestundhi scheduler component, so taint and tolearation anedhi oka set anna maata refer above 
+	repo, so ilaa tolerations ni ichinapudu k8 elaa behave chestundho chooddamu , 
+	so k8 scan chestundhi scan chesaaka choostundhi node selector ni 1a, 1a lo nodes ni vetukkuntundhi rendunnayi but rendintini taint chesundhi, veellu emyna tolerationrequest raise chesaaremo choostundhi ok tolration request kooda raise chesi vunnaru kaabatti then sceduler will allow , so conclusion
+	if you want to scedule your pods onto tainted nodes, you should request for toleration so, i hope its clear now taint and toleration
+	
+	ka 02-toleration.yaml
+	kubectl get pods ( after toleration pod is in running state , adhey toleration raise cheyakapotey status anedhi pending lo vuntundhi  for that )
+	
+	create 03-tolerations.yaml ( without toleration how pod behaves whther it is running or not ) 
+	https://github.com/DAWS-82S/k8-selectors/blob/main/03-tolerations.yaml
+	ka 03-tolerations.yaml
+	kubectl get pods( without toleration means toleration raise cheyakapotey status as pending )
+	
+--> if you taint the nodes , if you raise the toleration request to consider pod scheduling in that nodes, so taint chesetapudu multiple options 
+	NoSchedule --> order ( future lo vochey vaatini scedule cheyadhu but vunna vaatini remove cheyadhu, kotta vaatini allow cheyadhu )
+	PreferNoSchedule --> request
+	NoExecute --> it's an order we don't want any existing pods also running in that  
+
+tolerations will not 100% gaurentee thats pods will run on the tainted nodes.. so for now, untaint chestunna 
+	
+	kubectl taint nodes ip-192-168-43-212.ec2.internal hardware=gpu:NoSchedule- ( ending lo - add chestey then it will be untainted )
+	kubectl taint nodes ip-192-168-51-139.ec2.internal hardware=gpu:NoExecute- ( another one also to be untaintd )
+	
+	tolerations will not 100% gaurentee thats pods will run on the tainted nodes.. so for now, untaint chestunna so dhenni choodamu ipudu for that again renditini NoExecute to taint chestunna
+	
+	kubectl taint nodes ip-192-168-51-139.ec2.internal hardware=gpu:NoExecut ( tainted the two nodes again )
+	create 04-tolerations.yaml  ( we need to see the 100% not guarantee situation, node-selector teesesaamu and toleration add chesaamu  ) 
+	https://github.com/DAWS-82S/k8-selectors/blob/main/04-tolerations.yaml
+	ka 04-tolerations.yaml 
+	kubectl get pods -o wide ( so, mana intention vochesi tolerations add chesaamu kaabatti adhi either of the two nodes lo create avutundhi here 51.239 loki vellindhi )
+	tolerations antey idhey node lo create avutundhi ani kaadhu 9 times okey node lo pod create ayi 10th time inko node lo pod create avvochu so, endhukantey aa time lo aa node lo resources available lo vundakapovachu, already chaala pods run avutuvundochu ee rnditi lo so apudu k8 em chestundhi meeru toleration raise chesaaru but veetilo ikkada resources kaali ga levu nannem cheyamantaaru ani cheppesi verey node loki pampinchestundhi )
+	
+	so ilaanti situation lo em cheyaalantey nodeselector anedhi oka situation varaku pani chestundhi, apudu k8 lo affinity k8(affinity means istam annatlu ) anedhi okati vuntundhi so, now ee affinity anedhi use chesi oka pod ni particular node lo restrict cheyochu or prefer chey ani cheppochu means request chey ani cheppochu, but inka intaku minchi inka control kaavali anukuntey manamu affinity and anti-affinity use chyochu, so for now we can see affinity 
+	
+	kubectl delete -f 04-tolerations.yaml
+	create 05-node-affinity.yaml  ( ikkada kooda 2 nodes tainted already 
+	https://github.com/DAWS-82S/k8-selectors/blob/main/05-node-affinity.yaml
+	so now question will this guarantee as to run the pod on the tainted nodes antey mana project ki sambandhina worker nodes pyna ee taint and tolerations 100% guarantte istundha ivvadha ? no tolerations will not 100% gaurentee that youe  pods will run on the tainted nodes.. because already worker nodes lo pods run avutoomottam memory full ayipoyindhi anukondi meeru tolerant ani adiginanata maatrana scheduler elaa run cheyagalugutaandhi  , so apudu scheduler em decision teesukuntundhi verey vaatiloki pampinchestundhi but naaku strict ga kaavalani adigitey zpudu affinity, node selector also one of the option dhaaniki minchi inka options kaavali antey ee affinity ( refer /05-node-affinity.yaml ) use chesukovaali, so sheduler ipudu em chestundhantey mana user vochesi edho particular node kaavalani annadu ataniki edho label chesinatlu vunnadu hardware gpu ani idhi akkadiki velli choostundhi sceduler, hard gpu nodes anedhi vundhi nodes already konni chesunnaru labels and ayyo dhanni taint chesunnare aa resources ni veellemyna tolerations raise chesaara annapudu, raise chesaamu kaabatti , now scheduler will guarantee 100% , oka vela worker node resources available lo levu anukondi apudu pending lo choopistundhi 
+	
+	ka 05-node-affinity.yaml
+	kubectl get pods -o wide 
+	so nenu ipudu vaatini label cheyaali idhi varaku only taint chesaanu ( means only taint kaadhu label kooda cheyaali )
+	kubectl label nodes <IP of node> hardware=gpu  ( it is tainted with labelled ) do another for same labelled as well 
+	kubectl get pods ( so running lo ki vochindhi labells add chesyagaane ) 
+	
+	so let's we have all the combinations 
+
+situation
+==========
+node is tainted --> can scheduler run the pod on that node? --> no
+node is tainted --> pod asks for toleration --> can scheduler run the pod --> may be(if resources are not free or free or scheduler decided another node) --> Running
+node is tainted --> pod asks for toleration and nodeSelector --> If tainted have resources(Running) --> if tainted nodes don't have any resources(Pending)
+
+--> nodeSelector antey just key-value pair pedda control em vundadhu ikkada meeku, meeku inka ekkuva control kaavali antey we can go for affinity ( endhukantey nodeSelector lo 
+	single key-value pair, adhey affinity lo multiple values for that key ) 
+
+requiredDuringSchedulingIgnoredDuringExecution --> scheduler, Schedule the pod and execute --> hard rules, labels must be availalbe while scheduling (  idhi k8 ki manam ichey order )
+preferredDuringSchedulingIgnoredDuringExecution --> Soft rule --> if labels are not availalbe then consider schedule on the node.. ( idhi k8 ki manam ichey request ) 
+
+--> create 06-anti-affinity.yaml
+	https://github.com/DAWS-82S/k8-selectors/blob/main/06-anti-affinity.yaml
+	ka 06-anti-affinity.yaml
+	kubectl get pods -o wide ( so ikkada choostey gp nodes lo schehdule ayindhi antey ea node ki ayitey hardware gpu vundho aa node ki schdule cheyoddu ani (NotIn) anti affinity
+	
+--> so normal projects lo ivi antaga use cheyaru but AI, ML projects ayitey use chestaaru 
+--> next we have pod-affinity and anti pod-affinity and anti pod affinity please refer some where like chatgpt or k8 documentation or session to watch again ( refer below repo)
+
+	https://github.com/DAWS-82S/k8-selectors/blob/main/07-pod-affinity.yaml
+	https://github.com/DAWS-82S/k8-selectors/blob/main/08-pod-anti-affinity.yaml
+	
+backend --> DB --> every day bringing provisions from market
+
+backend --> Cache --> DB --> Cache -> 10 days rice store
+
+backend --> node-1
+Cache --> node-2
+
+traffic should come out from node-1 and enter into node-2 and then Cache pod
+
+pod-1 --> 17.182
+pod-2 --> 
+
+--> how do you schedule a pod onto particular node ? annapudu affinity and anti affinity use chesi chestaamantey saripotundhi 
+	if you want your application to be running in on a specific node what you do ? i an use node affinity then he may ask what if the node is tainted , then i will use tolerations , so i will use tolerations with node affinity then scheduler will definately run the pod on that specific node if resources are available , if resources are not available then pods status will be in pending 
+	
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--> so what is the option to expose your application running in k to the outside world ( k8 run ayye application ni outside world ki access ivvalantey ema cheyaali )
+
+	so, we have 2 options
+	service lo nodeport ani setup cheyadam and LB ani setup cheyadam , so LB ani setup chestey ea LB vostundhi manaki ? i.e, classic LB ( old generation LB anna maata )
+	
+	so here is ingress controller is to expose the application running in k8 to outside world 
+	
+	
+	
+	
+Ingress Controller
+===================
+Classic --> Old generation
+ALB --> New generation --> host based routing( ALB lo choosamu manam ) 
+
+netbanking.hdfcbank.com --> netbanking target groups
+sms.hdfcbank.com --> sms banking target group ( ikkada ALB inteelligent ga search chesi pampistundhi )
+
+url path hdfcbank.com/netbanking --> netbanking
+
+by using ingress controller, we can expose application running in K8 to outside world.
+
+--> so ingress controller ni setup cheyaali k8 lo so antey k8 lo meeru ippativaraku LB ani istey classic LB anedhi vochindhi ipudu ala kaakunda manam k8 application ni ingress controller laaga ALB create ayi andhulo ee rules anni automatic ga  vunchelaaga manam k8 object to create cheddamu this is called ingress object below are the steps
+
+setup ingress controller
+use ingress resources --> routing rules
+
+so ee rendu chestey we can expose our apllication to outside world 
+
+--> ingress controller ney aws vallu AWS Load Balancer Controller ani antaaru ( seach in google this name for Documentation ) 

@@ -1,0 +1,232 @@
+
+
+													Session - 46
+												=======================
+												
+												
+												
+
+
+
+
+
+
+
+
+Host network
+--------------------
+--> generally we can't use host network ( means VM host ki vunna IP to and vaati ports containers use chesukuntaayi, manam host network use chesinapudu host ports containers use chestaayi but idhi correct kaadhu endhukantey host ports exahust avutaayi and security kooda takkuva avutundhi ) 
+
+	create container using host network and do practice expense project using host network 
+	netstat -lntp   : to see the host ports used by containers
+	
+Note : docker rm -f `docker ps -a -q`   --> deleting all containers
+
+--> for now docker networking two types of networks, 
+		Host and bridge network
+	
+	host network container uses the host IP and host port, bridge network install docker it will create virtual bridge network, containers will be attatched to the bridge network you can communicate b/n the containers
+	overlay network is used b/n multiple hosts so that we don't use this network in docker we use kubernetes instead of this overlay network
+
+Docker volumes :
+================
+
+--> docker run -d -p 80:80 nginx 
+	it will run the nginx container and we have to open the docker exec -it nginx bash we can edit the default index.html then in browser we can see the content provided in index.html, now we have to delete container create again here we can observe the index.html content in browser during previous run, but we have't to see the index.html content once docker container removed because docker containers are emphimeral( Temporary ) means data stored in containers temporerly but we can see the containers data in   /var/lib/docker/ ,  ls -l but we can't understand the data 
+	docker inspect 187
+	here manam docker data ni choodagalamu but ikkada ayina sare container remove chesina taruvata choostey index.html vundadhu just like previous one
+	because 
+
+	docker containers ephemeral, once you remove container by default it removes the data too.
+
+--> but manaki data kaavli just like mysql manam mysql conatainer remove chesaamu anukondi but manaki db lo ni data kaavali kadha so docker voumes aney concept to vochindhi containers data lost avvakunda vundataaniki
+
+you can create one directory in host and map it to container. even we delete container data will not be lost, you can remount it..
+
+	create one directory in host
+	
+	mkdir nginx-data
+	docker run -d -p 80:80 -v /home/ec2-user/nginx-data:/usr/share/nginx/html nginx
+	
+	ikkada manam nginx container -v volume means data, container path ni host path to map chesukomani cheptunnam ( container lo ni nee path ni kaakunda nenu set chesina path nunchi content teesukomani cheptunnam )
+	
+	docker exec -it 147 bash
+	create our own index.html in /usr/share/nginx/html
+	cd /usr/share/nginx/html
+	echo "<h1> Hello volumes </h1>" > index.html
+	exit
+	docker rm
+	docker run -d -p 80:80 -v /home/ec2-user/nginx-data:/usr/share/nginx/html nginx
+	cd nginx-data
+	echo "<h1> I am using docker volumes </h1>" > volumes.html
+	in browser IP/volumes.html
+	
+	so ila data loose avvakunda host lo directories ni create chesi docker ki map cheyochu using -v toti
+	ls -l
+	so ila data loose avvakunda even containers remove chesina kooda data host directory lo safe ga vuntundhi
+	
+	so these are unnamed volumes( veetini unnamed ani endhukanatamantey who has to manage this directories )
+	
+	we created directory, so we have to manage it... but
+
+docker volumes means --> you have to create volumes with docker commands, so docker can manage, we no need to worry of creation and managing
+
+	docker volume (commands)
+	docker volume create nginx-data
+	docker volume ls   --> here we can see the nginx-data volume 
+	docker volume inspect nginx-data
+	cd /var/lib/docker/volumes/nginx-data/_data  ( here we can see the default html mapped data from nginx container )
+
+	
+	ikkada location lo dcoker location lo data pettukuntundhi antey ikkada docker managing this directory creation and etc so ika manam manage cheyalsina pani ledhu docker manage chestundhi
+	
+	so docker volumes better than unnamed volume because docker managing the volumes like directory creation data storing etc
+	
+	docker run -d -v nginx-data:/usr/share/nginx/html -p 80:80 nginx   : ikkada /usr/share/nginx/html ee location antey docker internal ga ekkado data store chesukuntundhi adhi manaki avasaram ledhu but manam aa data ni ee nginx-data volume ki map chestunnam so mana data anedhi safe ga ee nginx-data volume lo vuntundhi( manam container ni remove chesina kooda mana data anedhi safe ga vuntundhi )
+	
+	docker inspect 122
+	cd /var/lib/docker/overlay2/8f9dfd22c4d2040308c77cb5d6451dfe3ded95059e36942a86ee864886c61181/merged ( here is location docker stored default index.html 	inside container )
+	cd usr/share/nginx/html
+	here we can see the default index.html  ( now we can modify inside container and to see the nginx)
+	
+--> so ipudu manam mysql ni run cheyali can i run backend without mysql container for that we can go for docker compose but before this we have to understand 
+
+manually running containers disadvantages
+==========================================
+1. we need to know the dependency
+2. we need to make sure network creation and volume creation
+3. while removing we need to remove in anti dependency order..
+4. manually run docker run commands
+
+Docker-compose :
+================
+
+--> pyna manual running container disadvantages ni ee docker compose address chestundhi
+
+--> docker compose is used to manage the dependency b/n containers or services or applications we can start and stop at a time ( means oka single command ni use chesi annintini start cheyochu and stop cheyochu  ) ikkada network, volume anni docker compose ea create chestundhi
+
+create docker-compose.yaml file in expense-docker
+
+mysql -->stateful volumes required
+backend --> stateless volumes not required but depends on mysql 
+frontend --> stateless volumes not required but depends on backend
+
+docker-compose.yaml
+
+https://github.com/DAWS-82S/expense-docker/blob/main/docker-compose.yaml
+
+	docker compose up -d ( -d means annintini background loki pampinchamani antey )
+	
+	so ikkada network create ayindhi volume create ayindhi taruvata mysql, backend, front end anni create ayyayi as per instructions provided in docker-compose.yaml file
+	docker ps
+	backend not running becaise image build process lo inka localhost ni refer chestundhi because of manam host network create chesinapudu localhost use chesaamu so manam image ni rebuild cheyaali 
+	docker compose down  ( ikkada network maatramey remove chetundhi volume ni remove cheyadhu )
+	docker build for mysql, backend, frontend
+	docker compose up -d
+	docker logs backend 
+	
+	mysql
+	backend --> trying to connect mysql, before it is completely up, so we need to delay few sec
+	
+	still backend run avvatledhu endhukantey mysql up ayye lopu backend mysqk ni connect avvadaaniki choostondhi ikkada fail avutondhi because mysql konchem heavy kaabatti create ayi up aye dhaaniki konchem time padutundhi so manam backend lo kindhi command ni add cheyaali 
+	command: sh -c "sleep 10 && node /opt/backend/index.js"
+	so apudu backend sleep loki 10 sec veltundhi taruvata connect avutundhi
+	docker compose up -d
+	docker ps
+	check the browser to open expense app ( it should run perfectly)
+	
+	docker compose down  ( ikkada anninitini remove chesi check chestunnam volumes )
+	docker compose up -d
+	now in browser manam choodochu adding lo ( add expense menu lo kottgaaney ) previous ga add chesina data direct ga vostundhi volumes nunchi
+	
+	so this is docker volumes and docker compose 
+------------------------------------------------------------------------------------------------------------------------------------------------
+	
+--> ippativaraku means recent ga nee project lo kotta ga  nuv em implement chesaav below are the changes i implemented recently
+
+SG vs NACL --> using NACL i improved the security
+secrets stored in SSM parameter store
+developed terraform modules --> okko project lo okko terraform defination vuntaayi so nenu modules dwaara resources ni unique ga means project specific module develop chesaanu developers vaatini use chesi project specific definations create chestaaru
+ansible roles
+
+optimisation of backend and frontend to reduce the size and add non root user 
+----------------------------------------------------------------------------------
+I optimised dockerfiles --> I implemented the docker best practices and i optimise the docker images for that we can decrese the size of docker images (means i 							i used below alpine version and we have check this size of image running status whether it is upon running or not after adding 
+							  below alpine antey image ni taggistu work avutundho ledho check cheyaali)
+							  FROM node:20.18.3-alpine3.21
+							  docker build backend docker images : to check the size( it should be decreased )
+							  we have to test the application 
+							  docker compose up -d ( it should be up on running )
+							  docker logs backend 
+							  
+							  
+latest ( tags every time latest aney istunnam but manam edyna changes chesinapudu every time latest aney choopistundhi mana changes manam choodalemu for that
+tags as ( chnages chesina prati saari ) --> 1.0.0 --> 1.0.1 --> 1.0.2 --> 1.1.0 ( major changes) --> 2.0.0 ( above major changes means pedda major changes )
+
+--> ok vela manam latest anedhi use chestunnapudu after 2 years taruvata kooda akkada manaki latest ane choopistundhi mee history of changes anevi kanapadavu annamaata so never use latest tag on the images use proper versioning it is one of the best practice 
+
+--> run as non-root user --> ikkada manam oka file server lo create chesaam taruvata
+	docker run -d -v /:/app-data nginx
+	ikkada mana root lo create file and host OS lo vunna data antatini docker nginx container lopala access chestaamu 
+	docker exec -it nginx bash
+	cd app-data
+	ls -l
+	here we can see the all OS data of host in nginx container it is not good practice endhukantey idhi security breach ayye avakasham vundhi means hack aye chance vundhi so mana root user to container or images create cheyakoodadhu manam docker file lo atlease last command mundhu USER ni vaadali 
+	add user anedhi RHEL OS kaadhu idhi alipine kaabati we can use 
+	RUN addgroup -S expense && adduser -S expense -G expense ( here ikkada user ni create chestey group emi create avvadhu ) 
+	RUN mkdir /opt/backend  ( ee directory permisiions ni expense ki transfer cheyaali )
+	RUN chown -R expense:expense /opt/backend
+	so ikkada workdir lo ki vochina ea files ayina kooda expense user pyney vuntundhi 
+	USER expense ( befor last instruction in Dockerfile ) 
+	
+	docker build backend 
+	docker compose up -d 
+	docker exec -it backend sh
+	id ( expense user so ikkada expense user vunnapudu mana image lo manam em cheyalemu means host OS ni cliam cheyalemu ) 
+	docker logs backend ( to check started or not ) 
+	
+frontend 
+-------------
+for frontend also the same procedure followed in backend 
+	
+	https://github.com/DAWS-82S/expense-docker/blob/main/frontend/Dockerfile
+	
+--> so this is how we can improve security , reduce the size, optimization , performance what not everything 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--> difference b/n docker host network and bridge network ?
+--> what are the docker best practises you implented in your project ?

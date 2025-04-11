@@ -1,0 +1,123 @@
+
+																				Session - 60
+																			=====================
+																			
+																			
+																			
+																			
+																			
+																			
+																			
+																			
+																			
+																			
+--> today ingress controller to frontend complete cheddamu
+	
+	aws eks update kube-config --region us-east-1 --name expense-dev
+	kubectl get nodes ( 2 nodes showing )
+	nslookup mysql-dev.daws82s.online ( if RDS ie ready check the DNS it is showing the RDS DNS and IP )
+	backend configuration need to be configure before going to frontend ( yesterday session we have configure backend using blue/green deployment ) 
+	and also backend.sql need to be configure for to load the schema for that install mysql on worksatation and give
+	mysql -h mysql-dev.daws82s.online -u root -pExpenseApp1 ( to check the bation host connected to RDS ( mysql ) or not )
+	mysql -h mysql-dev.daws82s.online -u root -pExpenseApp1 < backend.sql ( load the schema , tables, user etc into RDS ) 
+	
+	so frontend outside world ki expose cheyaali antey manaki 2 options vunnayi ikkada ( usual ga you can prefer second one endhukantey evaro bayata component vochi mana infrastructue lo ivanni create cheyaalsina avasaram  ledhu manamey create chesi vallaki inform chestey then they will connect , but firstapproach enti antey EKS ki access istunnam anni everything nuvvey create chesuko ani, so dhaanikantey kooda manamey create chesukuni control chesukuntey vochina output dhaanni vallaki ichaamu antey EKS ki then they will add the pods to the TG )
+	
+	so 2 approaches chooddamu, manaki first approach already telusu 
+	
+																				
+1. Create ingress resource that creates ALB, Listener, Rule and Target group
+
+--> create OIDC provider and IAM policy if not creates
+	
+eksctl utils associate-iam-oidc-provider \
+    --region us-east-1 \
+    --cluster expense-dev \
+    --approve
+	
+--> service account  and IAM role mapping done when we run below command ( IAM role ki oka polcy vundhi adhi entantey LB ni create cheyagaligey policy antey bayata vaallaki 
+	manam access istunnam annttlu meaning ) 
+
+eksctl create iamserviceaccount \
+--cluster=expense-dev \
+--namespace=kube-system \
+--name=aws-load-balancer-controller \
+--attach-policy-arn=arn:aws:iam::315069654700:policy/AWSLoadBalancerControllerIAMPolicy \
+--override-existing-serviceaccounts \
+--region us-east-1 \
+--approve
+
+	after that we need to add the drivers for that run below command 
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense-dev --set serviceAccount.create=true --set serviceAccount.name=aws-load-balancer-controller
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense-dev
+
+	issue while creating the above setup siva troubleshooting from 12:00 min - 23:00 min 
+	kubectl get pods -n kube-system ( LB lo pods creation showing )
+	so ingress controller install ayipoyindhi kaabatti now we proceed for frontend 
+	
+--> fornt end lo manaki kaavalsindhi Deployment, configmap, service.yaml, ingress.yaml ilaa anninitni configure cheyaali, create all files, refer below repo
+
+	https://github.com/DAWS-82S/k8-blue-green/tree/main/frontend
+	
+	backend running lo vundaali for that ka main-service.yaml (cd backend , using k9s check main-service describe it should have end points are registered ) now frontend pyna repo lo anta code raasamu now we have to apply all
+	
+	frontend configmap.yaml file choostey frontend vochesi backend ki pointout chestondhi anna maata 
+	ipudu manaku certficate kaavali andhukosam manam manual ga create cheyakunda through terraform dwaara create chetaamu for that create 50-acm see the below repo 
+	https://github.com/DAWS-82S/terraform-aws-eks
+	after applying through terraform take the certificate arn and give to ingress.yaml file ki ichaamantey then it will create the reources 
+	
+	apply all ka all yaml file in the frontend then all resources are created and check using k9s service Deployment and pods created or not 
+	ka ingress.yaml
+	so now frontend created ipudu anni successfull ga create ayuntey manaku LB create ayundaali but oka vela LB create avvakuntey manam ElasticLBFullAccess ivvali IAM policy attached to worker nodes ( goto aws console take one worker node --> security --> IAM role --> attach that policy,, update in 40-eks terraform code also for next time  )
+	using k9s goto expense namespace--> service--> frontend--> delete it --> it will recreate again using ASG 
+	
+	after resolving all errors by sive 
+	
+	LB created using ingress controller, ikkada ingress controller use chesinapudu node port lu avemi vundavu ikkada, so LB nunchi pod ki vostaayi so pod vochesi manaku port no. 80 lo run avutundhi, so ipudu manam LB nunchi port no. 8080 ni open cheyaali for that add sg in 10-sg folder 
+	
+	create alias record as LB DNS in R53 for expense-dev.daws82s.online 
+	check the browser https://expense-dev.daws82s.online  ( we have to see the frontend  app an add expenses it should be working fine ) 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	
+2. We create ALB, Listener, Rule, TG through terraform. EKS adds the pods to the TG
+
+kubernetes.io/role/elb.	
+
+	
+--> so ee process lo eni antey manaku itla evaru access lu ivvaru EKS velli LB create cheyadam , permission ivvadam , sg create cheyadam , ivanni access lu anedhi general ga 
+	raavu manaku and adhi anta better kooda kaadhu so what we do antey manamu ingress dwaara create ayina LB ni delete chestey anni delete avutaayi, ipudu manam terraform to chesukovali EKS luster ki veetannintiki access lu ivvakoodadhu manam actual ga 
+	
+	ingress controller ayitey kaavali manaku eks lo endhukantey manaki communication set cheyadaaniki outside resources to ok, ee OIDC, service account, ee drivers anni kaavali but manam ingress ivvakunda we will create LB on our own, so anni manamey create cheddam ( Vm's lo target groups vochesi instance based and k8 lo pods Ip based target groups anna maata ) 
+	
+	after applying 10-sg, 60-eks-alb  through terraform, refer below repo
+	https://github.com/DAWS-82S/terraform-aws-eks
+	
+	so LB create ayindhi and Target group create ayindhi IP based and then anni create ayindhi kaabatti k8 ki cheppedhi entantey ee target manaki vochina frontend pods vuntaayi kadha vaati yokka Ip address ni ikkada LB lo ni target group lo register cheyaali so ala chestey manaku traffic direct ga pod key vostundhi 
+	
+	dhaanikosam manaki oka resource vundhi  adhey target group binding  ( but manaki ingress antey ingress controller same, ikkada ingress resource kaakunda target group binding anna maata )
+	
+	create tgb.yaml
+	https://github.com/DAWS-82S/k8-blue-green/blob/main/frontend/tgb.yaml
+	
+	ka tgb.yaml ( now everything is fine mana frontend pods vochesi target group lo register avutaayi 
+	
+	check the browser https://expense-dev.daws82s.online  ( we have to see the frontend  app an add expenses it should be working fine ) 
+	
+--> but interviewes ingress ea adugutaaru apudu meeru em chappali antey, ingress is used to provide the external access to the applications running in k8 cluster so we will 
+	use ALB as ingress controller and we can create ingress resources that will provide the routing rules ( see last time manam defination raasamu what is ingress anedhaani see that )
+	
+--> recent ga meeru emi changes chesaaru ani interview lo adiginapudu
+	
+	maaku k8 lo rolling update vunnindhi but maaku business requirement client vochesi blue/green deployment kaavali annadu endhukantey konni saarlu at a time oka 5-10 seconds manaku old version kooda vostundhani cheppesi blue/greendeployment adigaaru so nenu recent ga rolling update deployment nunchi blue/greendeployment ki maarchaanu ani cheppali elaa maarcharu antey blue/greenilaa work avutundhi so nenu deployment, blue deployment, green deployment, main-service, preview service ivanni teesukuni oka script raasukunnanu ala explain chestu vellali ( ilaaney cheppali realtime lo chesina dhaani laaga explain cheyaali not a bookish defination ok ) 
+	
+
+
+
+
+
+
+NODE --> Root volume(OS) --> extra disk
+
+NODE --> Mount extra disk to node

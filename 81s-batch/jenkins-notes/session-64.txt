@@ -1,0 +1,199 @@
+
+																			Session - 64
+																	===============================
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+Master Agent architecture
+--------------------------
+1 acre
+100 acres --> if you employ few resources
+
+--> so project lo only one CI server vuntundhi, mana projects chaala tools, chaala mandhi developers vuntaaru and chaala modules and chaala components vuntaaayi, so veetannintiki only server vuntundhi, okkokkariki okko server vundadhu general ga, so akkadinunchi heavy load vostuntundhi master node ki but aa load ni master node ( one CI server ) okatey tattukoledhu so apudu manaku agents anevi vuntaayi ee agents ni maste ki attach chestaamu apudu master em chestundhantey master ki vochina work or load ni agents ki distribute chestundhi and also master vochina logs ni kooda collect chesi akkada choopistundhi, so ikkada manaki definate ga agent anedhi khachitam ga avasaram 
+
+--> agents can be VM's or Docker images or Kubernetes pods also ( all we need one compute resource for resource ) 
+
+CI servers --> 1 server across project
+
+Java 8 --> agent-java8 ( ikkada java8 ki smabandhinchina load ni ee agent ki pampistundhi )
+Java 17 --> agaent-java17 ( ikkada java17 ki smabandhinchina load ni ee agent ki pampistundhi alaaga nodejs ki sambandhinchinavi seperate agents ki ala master pampistuntundhi )
+
+--> ilaaga master agent archetecture lo manam different different configurations ni chesukovachu  ( in code agent any means ikkada ee pipeline ni manam ea agent lo  run cheyaali ani artam ) 
+	
+	for thata manam oka agent ni create chesi, master ki attch chestaam, so ika mana pipelines annintini kooda agents loney run chetaamu, usually master lo manam epudu pipelines ni run cheyamu ( master is only for monitoring purpose ), only agents loney pipelines ni run chetaamu, so ikkada manaki two types vuntaayi connect avvadaaniki  
+	
+1. employee daily coming and checking with master for work
+2. whenever master gets work, he will allocate to employee   ( take second one )
+
+-->  create one EC2 instance for agent and install java is the dependency for jenkins in agents 
+
+sudo yum java-17-openjdk -y
+
+/var/lib/jenkins --> JENKINS_HOME ( jenkins ki sambndhinchina configurations anni ikkada vuntaayi )
+
+--> ipudu master ni agent ni configure cheyaali for that goto master node --> manage Jenkins --> Nodes --> here we can see the warning for disk space ( means ikkada disk space 
+	requirement vundhi for that manaki 2 options vunnayi 1. master ki memory adda cheyadam means kotta disk adda cheyadam and 2. starting lo ney 20 gb ki badulu 50 Gb teesukovadam or else we can check the boxes under nodes--> Configure Node Monitors
+	--> Free Disk space don't mark and free temp space, dont mark  and also Response time ( put tick in check boxes ) --> apply & save --> so ikkada choostey built in node anedhi master node annamaata , so ipudu manam kotta node chestunnam for that
+
+	AGENT-1 creation
+	-------------------
+
+	goto new node --> give name as agent-1 --> select permanant agent ( means static )  --> create --> No. of execution ( at a a time enni jobs run cheyadamu agent lo ani meaning, high configuration server ayiter ekkuva jobs and low configuration server ayitey takkuva jobs run cheyadam  ) : 3 --> remote root directory :   /home/ec2-user/jenkins-agent( agents lo manaki sambandhinchina configurations anni ekkada save avvali Anedhi ) --> labels : AGENT-1 --> Usage : only build jobs with label... ( evarytey ee agent lo run avvali ani configuration istaaro apudu maatramey pipeline run cheyamani nenu cheptunnatlu )  --> Launch method : select second option (manaki master lo pipeline trigger ayinapudu ee master vochesi agent ni launch chestundhi )--> Host : private IP ( agent IP address ) --> crredentials --> add --> kind as username with password ( give username and password and id ssh-auth , Description : ssh-auth  see screen shot ) --> add --> select the credentials as ssh-auth ( antey master agents to connect ayyetapudu ee credentials to connect avutundhi ani meaning ) --> Host key verification staratetgy : last one ( none verfying verification startegy means first time connect ayinapudu yes/no adugutundhi kadha but ikkada manaki telusu kaabatti key name verify cheyaalsina avasram ledhu ) --> rest all fine --> save 
+	
+	open AGENT-1 --> see the log ( master agent to connect avutoo vuntundhi ) we can see agent successfully connected and online 
+	
+--> master-agent archetecture gurinchi cheppamantey in CI like jenkins environment master cannot satisfy all requirements and all work loads so we can have different types of agents with different configurations we can connect master with agents via SSH we can provide the agent IP address with USername and passwords and provide some labels while triggering pipelines we can mention which agent that pipeline should run 
+
+--> ls -l in agent node --> we can see the agent remoting.jar ikkada master aagent ni ee location loki push chesuntundhi ( so ilaa manam enni agents ayina create cheyochu ) 
+
+	 agent {
+        label 'AGENT-1'
+    } 
+	
+	so ikkada pipeline trigger chesinapudu master dheenni  scan chestundhi apudu master ki agent-1 run cheyamani adugutunnaru so master aa pipeline ni agent-1 lo run chestundhi and master em chestundhantey logs annintini pull chesi tana dhaggara store chesukuntundhi  ( see the screen shot for build logs are stored in master ) 
+	
+--> create one pipeline project to test whether the pipeline is running on agent-1 or not ( for that see yester creation of pipeline project from SCM )
+
+--> delete the builds once pipeline is completed for that give
+	
+	post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+		
+		https://github.com/daws-81s/learn-jenkins/blob/b3ff4fe2470311a28b636b9bb847fdbeb2714d4b/Jenkinsfile
+		
+	rerun the build again it cannot store the builds because we can avoid the extra memory consumption 
+	so this is master-agent concept in jenkins
+
+Groovy syntax --> similar to Java
+
+--> options anedhi vundhi idhi vochesi 
+
+	pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 10, unit: 'SECONDS')
+    }
+	
+	ikkada timeout ante ee pipeline anedhi manam 1 houe ichaamu ante one hour lo complete avvalani meaning oka vela one hour kante ekkuva time teesukuntey ee pipeline fail ayipotundhi general ga oka CI/CD run avvalantey twaraganey complete avutundhi even one hour pyna complete ayi success ayina kooda manam edho wrong vundhi ani artam chesukovadaaniki so manam time limit pedutunnam 
+	
+	https://github.com/daws-81s/learn-jenkins/blob/efe4e4221d6c774241ea300c25234e24bf62d5fb/Jenkinsfile
+	
+	rerun the build again we can see the build failure  because we have given  timeout(time: 10, unit: 'SECONDS') and  sh 'sleep 10'
+	
+	one more options in the jenkins is Disable concurrent builds ante at a time multiple builds run avvakoodadhu for that 
+	
+	pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 10, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+	
+	https://github.com/daws-81s/learn-jenkins/blob/ed5508a2b8cea592ac56e835f01175dd646c9838/Jenkinsfile
+	
+	run the pipeline 2 builds at a time ikkada 2 builds at a time run avvavu okka dhaani taruvata okati run avutundhi 
+	
+	we have retry option but it is not working for siva it is not that much important 
+	
+	parameters used in jenkins file first time build chesinapudu jenkins parameters vunnayani artam chesukodhu so manam oka saari run cheyaali taruvata build with parameters option ( refresh the browser ) kanapadutundhi and goto build with parameter section give values --> build --> we can see the values mentioned in the build with parameters section. so ilaa params set chesi manam dynamic ga dheeniki pass cheyadam kaani mana CI/CD lo, ala manam default values kooda set chesukovachu   see the below repo 
+	
+	https://github.com/daws-81s/learn-jenkins/blob/e69dcce9f1be036cc9d4372250950d9f06c66739/Jenkinsfile
+
+triggers
+-----------
+whenever developer pushes to git, it should automatically trigger pipeline
+
+webhooks ( below are the configuration of webhooks )
+
+	https://www.blazemeter.com/blog/how-to-integrate-your-github-repository-to-your-jenkins-project#:~:text=Step%201%3A%20go%20to%20your,add%20%2Fgithub%2Dwebhook%2F.
+
+--> github --> setting --> webhooks ( left side ) --> add webhooks --> payload URL : jenkins URL/github-webhook/ --> content type : application/json --> Disable SSL verification --> select third option (tick mark the pushes ) --> add webhook 
+
+	goto jenkins select the pipeline-name and goto configure goto build triggers and select Github hook triggerfor gitSCM polling --> apply & save 
+	
+	now manam githublo edyna change ni just push chestey github edho oka push event vochindhi ani artam chesukuni dhanni jenkins ki forward chestundhi so that automatic ga build jarugutundhi github webhooks dwaara 
+
+http://184.73.142.106:8080/github-webhook/ --> / at the end is important
+
+	in jenkins build periodically option chooddam means manual ga trigger option elaano choodamu
+	goto jenkins select the pipeline-name and goto configure goto build triggers and select Build periodically --> give * * * * *( it is just like a CRON job )  --> apply & save ( idhi nightly builds laaga use avutundhi antey developers anta push chesina taruvata night lo build ayyelaga cron job dwaara trigger cheyadam  konni legacy projects builds anevi konni hours run avutaayi so apudu vaallu night time lo pettukuntaaru  )
+	so every minute build trigger avutundhi we have to see that 
+	
+	once completed we have to remove all triggers for going to next concept otherwise build are running periodically based on triggers conditions 
+	
+	inks manaki POLL SCM trigger ilaa konni vunnayi we can see in future maybe 
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+--> inputs anedhi okati vundhi during running the build in the middle manam user inputs ichukovadaaniki use chestaaru just like yes or no in liunx softwares installation. see the input option working for that refer below repo 
+
+	https://github.com/daws-81s/learn-jenkins/blob/1e7efb50a82f6b2a1a8d4641a1cd4411d5d366b9/Jenkinsfile
+	
+	build now and see the input option yes for the verfication  ( it is just like terraform changes terraform plan run ayyaka apply kottemundhu pipeline lo input option isthey mana manger dhanni approve chesteney terraform apply ayyelaaga manam pipeline create cheyochu ) \
+	
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+when condition : 
+
+when you select create --> apply
+when you select destroy --> destroy
+
+--> pipeline stage run at particular environment means manam branch production ani istey manadhi branch main kaabatti aa when condition ichina stage anedhi skip avutundhi 
+	build now to see the skipping the stage in stage view ( refer below repo )
+	
+	https://github.com/daws-81s/learn-jenkins/blob/68ebdaeefc1b66886e380c54b50ae5edf71e15a3/Jenkinsfile ( give branch as production  ) 
+	
+	https://github.com/daws-81s/learn-jenkins/blob/be516c09557b581f0cd2ad6fd889b7be2545622c/Jenkinsfile ( give branch as production and later give main and verify condition =! as well)
+	
+	so ilaa manam based on  conditions to control cheyochu when use chesi 
+	
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--> general ga application ni deploy cheyaalantey infrastructure ready ga vundaali infra means
+
+	vpc, sg, bastion, rds, alb ingress, eks, cdn, ecr, 
+	
+	ivanni ready ga vunte inka mana jenkins pipeline to direct ga application ni EKS loki deploy cheyochu 
+	
+--> so manam ipudu simple ga expense backend ni CI/CD lo just try cheddam refer below repo
+	
+	https://github.com/daws-81s/backend/tree/81b97be0926de63efdf1da6ce9c5ac9a642fea5d
+	
+	java and node.js, Docker  should be installed on agents
+	
+	plugin for reading the JSON : Pipeline Utility StepsVersion
+
+versions -> read the version and tag docker image with this version
+
+push to ecr
+k8 deployment
+
+
+
+
+
+
+
+
+
+
+
+--> testing team vallu oka pipeline adigaaru emani every day valla testscripts vunnayi and konni live applications vunnayi so vaalla scripts anni daily run ayyelaaga pettamannaranta 
+
+	testing vallato connect ayi vaallu konni test scripts istaaru vaatini manam ee jenkins file lo configure chesi and agents lo aa testscripts ki sambandhinchina softwares like java, selenium etc install chesi manam build periodically triggers ni use chesukoni oka pipeline create chesi istey jenkins lo automatic ga cronjob dwaara aa testing team vaalla scripts run avutaayi anna maata 
+	
+--> okatey jenkins server vundhi but different time zone lo elaa run cheyaali like APAC, AMEA, one more region ki elaaga cheyaali ? 
+
+--> agents can be VM's or Docker images or Kubernetes pods also ( all we need one compute resource for resource ) 
+	antey manam projects lo slave ga VM's ni kaakunda docker image ni teesukuni agent laaga pettukuni mana job ni andhulo run cheyadam ani meaning adhi elaa cheyaali anedhi we need to research and also kubernetes pods ni kooda agents laaga elaa setup cheyaali anedhi we need to research ? 
+	
+	how to setup jenikns slaves using Docker ? we have to search in youtube so that manaki docker images ni agents laaga ella cheyocho telustundhi 

@@ -1,0 +1,111 @@
+ 1  25/02/25 01:14:48 sudo su -
+    2  25/02/25 01:22:50 docker ps
+    3  25/02/25 01:24:37 sudo usermod -aG docker ec2-user
+    4  25/02/25 01:14:48 sudo su -
+    5  25/02/25 01:22:50 docker ps
+    6  25/02/25 01:24:37 sudo usermod -aG docker ec2-user
+    7  25/02/25 01:24:40 exit
+    8  25/02/25 01:25:55 docker ps
+    9  25/02/25 01:34:53 docker images
+   10  25/02/25 01:35:24 docker pull nginx
+   11  25/02/25 01:35:33 docker images
+   12  25/02/25 01:35:39 docker ps
+   13  25/02/25 01:46:44 docker pull nginx:mainline-alpine3.21-perl
+   14  25/02/25 01:47:16 docker images
+   15  25/02/25 01:47:30 docker ps
+   16  25/02/25 01:48:19 docker pull nginx
+   17  25/02/25 01:54:31 docker create nginx:latest
+   18  25/02/25 01:54:40 docker ps -a
+   19  25/02/25 01:55:32 docker start f15132487ce6
+   20  25/02/25 01:55:57 docker ps
+   21  25/02/25 01:56:42 docker start 2a912aed38f3
+   22  25/02/25 01:56:45 docker ps
+   23  25/02/25 01:57:33 docker rm 2a912aed38f3
+   24  25/02/25 01:57:47 docker rm -f 2a912aed38f3
+   25  25/02/25 01:57:51 docker ps
+   26  25/02/25 01:57:57 docker ps -a
+   27  25/02/25 01:58:40 docker images
+   28  25/02/25 01:59:00 docker rmi nginx
+   29  25/02/25 01:59:08 docker images
+   30  25/02/25 01:59:38 docker images -a -q
+   31  25/02/25 02:00:10 docker images `docker images -a -q`
+   32  25/02/25 02:00:26 docker rmi `docker images -a -q`
+   33  25/02/25 02:01:05 docker ps
+   34  25/02/25 02:01:09 docker ps -a
+   35  25/02/25 02:01:23 docker rm -f f15132487ce6
+   36  25/02/25 02:01:30 docker rmi `docker images -a -q`
+   37  25/02/25 02:01:42 docker images
+   38  25/02/25 02:02:34 docker run nginx:mainline-alpine3.21-perl
+   39  25/02/25 02:03:17 docker run -d nginx:mainline-alpine3.21-perl
+   40  25/02/25 02:03:25 docker images
+   41  25/02/25 02:04:57 netstat -lntp
+   42  25/02/25 02:06:03 docker rmi `docker images -a -q`
+   43  25/02/25 02:06:13 docker ps
+   44  25/02/25 02:06:27 docker rm -f eff69140109c
+   45  25/02/25 02:06:31 docker rmi `docker images -a -q`
+   46  25/02/25 02:06:44 docker ps
+   47  25/02/25 02:07:04 docker ps -a
+   48  25/02/25 02:07:13 docker rm -f 3ea6a9f6455b
+   49  25/02/25 02:07:17 docker rmi `docker images -a -q`
+   50  25/02/25 02:07:26 docker images
+   51  25/02/25 02:08:11 docker run -d -p 80:80 nginx
+   52  25/02/25 02:08:31 docker images
+   53  25/02/25 02:08:35 docker ps
+   54  25/02/25 02:09:37 docker run -d -p 8080:80 nginx
+   55  25/02/25 02:09:44 docker ps
+   56  25/02/25 02:10:52 docker exec -it 51bbb81703ce
+   57  25/02/25 02:11:05 docker exec -it 51bbb81703ce bash
+   58  25/02/25 01:25:55 docker ps
+   59  25/02/25 01:34:53 docker images
+   60  25/02/25 01:35:24 docker pull nginx
+   61  25/02/25 01:35:33 docker images
+   62  25/02/25 01:35:39 docker ps
+   63  25/02/25 01:46:44 docker pull nginx:mainline-alpine3.21-perl
+   64  25/02/25 01:47:16 docker images
+   65  25/02/25 01:47:30 docker ps
+   66  25/02/25 01:48:19 docker pull nginx
+   67  25/02/25 01:54:31 docker create nginx:latest
+   68  25/02/25 01:54:40 docker ps -a
+   69  25/02/25 01:55:32 docker start f15132487ce6
+   70  25/02/25 01:55:57 docker ps
+   71  25/02/25 01:56:42 docker start 2a912aed38f3
+   72  25/02/25 01:56:45 docker ps
+   73  25/02/25 01:57:33 docker rm 2a912aed38f3
+   74  25/02/25 01:57:47 docker rm -f 2a912aed38f3
+   75  25/02/25 01:57:51 docker ps
+   76  25/02/25 01:57:57 docker ps -a
+   77  25/02/25 01:58:40 docker images
+   78  25/02/25 01:59:00 docker rmi nginx
+   79  25/02/25 01:59:08 docker images
+   80  25/02/25 01:59:38 docker images -a -q
+   81  25/02/25 02:00:10 docker images `docker images -a -q`
+   82  25/02/25 02:00:26 docker rmi `docker images -a -q`
+   83  25/02/25 02:01:05 docker ps
+   84  25/02/25 02:01:09 docker ps -a
+   85  25/02/25 02:01:23 docker rm -f f15132487ce6
+   86  25/02/25 02:01:30 docker rmi `docker images -a -q`
+   87  25/02/25 02:01:42 docker images
+   88  25/02/25 02:02:34 docker run nginx:mainline-alpine3.21-perl
+   89  25/02/25 02:03:17 docker run -d nginx:mainline-alpine3.21-perl
+   90  25/02/25 02:03:25 docker images
+   91  25/02/25 02:04:57 netstat -lntp
+   92  25/02/25 02:06:03 docker rmi `docker images -a -q`
+   93  25/02/25 02:06:13 docker ps
+   94  25/02/25 02:06:27 docker rm -f eff69140109c
+   95  25/02/25 02:06:31 docker rmi `docker images -a -q`
+   96  25/02/25 02:06:44 docker ps
+   97  25/02/25 02:07:04 docker ps -a
+   98  25/02/25 02:07:13 docker rm -f 3ea6a9f6455b
+   99  25/02/25 02:07:17 docker rmi `docker images -a -q`
+  100  25/02/25 02:07:26 docker images
+  101  25/02/25 02:08:11 docker run -d -p 80:80 nginx
+  102  25/02/25 02:08:31 docker images
+  103  25/02/25 02:08:35 docker ps
+  104  25/02/25 02:09:37 docker run -d -p 8080:80 nginx
+  105  25/02/25 02:09:44 docker ps
+  106  25/02/25 02:10:52 docker exec -it 51bbb81703ce
+  107  25/02/25 02:11:05 docker exec -it 51bbb81703ce bash
+  108  25/02/25 02:17:23 docker ps
+  109  25/02/25 02:17:39 docker logs 51bbb81703ce
+  110  25/02/25 02:18:26 docker inspect 51bbb81703ce
+  111  25/02/25 02:19:09 history

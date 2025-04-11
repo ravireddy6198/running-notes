@@ -1,0 +1,225 @@
+
+																Session - 48   (KUBERNETES)
+															======================
+															
+															
+															
+															
+															
+				
+--> docker ekkada fail avutundhantey docker containers laaga run chestunnapudu  no. of containers perigey koddi aa containers ni manage cheyadam docker ki 
+	kastam ayipotondhi autoscaling kaani, traffic perigey koddi container ni automatic ga increase cheyadamu , load balancing 4, 5 containers vunnayanukondi vaatiki load balancer vundaali actually adhi docker cheyalekapotondhi and volume management adhi docker, host(server linux) lo ney vundhi kaabatti , host crash ayindhantey mottam volume kooda potundhi networking kooda konchem potondhi multiple docker host lu pettukunnapudu vaati madyalo networking create cheyadam konchem first thing every thing manamey chesukovali so ee complexities anninti valla manam , oka archestrator kaavali archestrator anedhi kubernetes kosam aney kaadhu meeku manage cheyalsina servers ekkuva vunnapudu khachitam ga archestrator anedhi okati avasaram avutundhi like master server architecture laaga like master node laaga
+
+1. build the image --> use docker
+2. run the image as container --> use kubernetes
+
+so veetanninti kosam manaki kubernetes select chesukunnam
+				
+eksctl -->IDHI OKA  AWS command line tool to create and manage EKS cluster ( eksctl is used for cretate update delete the eks cluster only)
+
+--> docker container ni run cheyadaaniki suit avvaledhu kaabatti kubernetes ki vochaam so ee kubernetes ki kooda manam inform cheyaali kadha docker images ni 
+	elaa run cheyaali anedhi, so kubernetes ki kooda inform cheyaali that is again just docker compose.yaml file laaga idhi manifest.yaml file 
+
+--> kubectl command line is used for taking the manifest.yaml and pushed to EKS cluster ( manifest.yaml file ni kubectl execute chestundhanna maata )
+--> eksctl anedhi EKS cluster create cheyadaaniki and kubectl anedhi EKS cluster to interact avvadaaniki anna maata
+--> for authentication aws lo eks cluster create cheyalantey authentication avasaram dhaani kosam manaki aws command line or IAM roles means aws configure ani 
+	ichinapudu details istaamu eksctl use chesetapudu adhi aws configure nunchi authenticate ayi EKS cluster ni create chestundhi and same for kubectl as well
+
+1. create one linux server as workstation
+2. install docker to build images
+3. run aws configure to provide authentication
+4. install eksctl to create and manage EKS cluster
+5. install kubectl to work with eks cluster
+
+--> oka linux server lo docker, eksctl, kubectl, aws configure anni install chesina taruvata manaki EKS cluster configuration setup kaavali vaati kosam oka 
+	sample yaml file teesukuni andhulo region, ManagedNodes, instance type etc mention cheyaali refer below
+
+https://github.com/DAWS-82S/docker/blob/main/eks.yaml
+
+ondemand, spot and reserved instances
+ondemand --> creating server on the spot, high cost
+reserved --> cost is less because you are reserving for longterm
+SPOT instances --> 70-90% discount hardware available now...when our AWS customers require we will take back your hardware with 2min notice. ( testing and dev we are running not fit for production) manam practice ki idhi vaadutaam ikkada aws, instance ni laagesukunna kooda kubernetes anedhi managed node lo edyna instance aws laagesukunnapudu aa server loni containers ni verey server ki shift chestundhi so no problem for practice
+
+-->	aws configure
+	create cluster
+
+	eksctl create cluster --config-file=eks.yaml ( dheenni manam future lo terraform loki teesukostaam  means EKS cluster ni terraform to create chestaam)
+	
+	cloud formation (just like terraform ) anedhi vundhi aws lo idhi aws native service dheeni dwaara mottam resources ( like dedicated VPC kaani NAT, routes etc ) ni create chestundhi aws lo (background lo) pyna command apply chesinapudu ( it is usually takes 15 min )
+	
+	cluster (control machine ) create ayina taruvata
+
+	kubectl get nodes --> shows the 3 nodes (ikkada cluster to kubectl interact avutundhi)
+	kubernetes cluster creation completed
+
+everything in kubernetes is called as resource/object
+
+--> oka kubernetes cluster lo manam multiple projects chesukovachu endhukantey kubernetes is heavy this is not simple thing ( multiple projects in the sense in 
+	HDFC multiple projects are there just like internet banking, mobile, whatsapp, loans, cards etc )
+	okkokka component okkokka cluster ni chesukuntu vellaledhu oka group of project vochesi oka cluster ni tessukuntaayi juste like saving bank teesukuntey dhaanilo frontend, backend contanins lot of componenets , databses, SMS, whatsapp lu vuntaayi ( savings ( frontend, backend lot of components, db etc ki oka cluster and loans ki kooda same one cluster alaaga anna maata
+	so atleast okkokka group of banking okkokka cluster ni teesukuntaayi 
+	so andhukani ee kubernetes cluster anna taruvata multiple projects vuntaayi ,
+	multiple projects vunnapudu aws lo em use chesi isolation chestaamu antey , VPC is used for isolation
+	but ikkada cluster mottam oka entire space anukuntey indhulo ee kubernetes cluster lo manaki namespace anedhi vuntundhi, one project for one namespace ( expense ) another project for another namespace (roboshop)
+
+
+namespace --> isolated project space where you can create and control resources to your project
+
+manam elanti name space ivvakapote kubernetes default namespace create chestundhi
+
+default namespace is created along with cluster creation
+
+kubectl get namespace : to show namespaces below 3 are the kubernetes administration use purpose
+
+--> create k8-resources repo in github and local as well
+	so kubernetes lo pratidhi resource ea and pratidhi object ea
+	and every thing you can create through yaml file 
+	
+	create 01-namespace.yaml
+	
+	https://github.com/DAWS-82S/k8-resources/blob/main/01-namespace.yaml
+	
+	below are common for all resources 
+	
+	kind: Namespace
+	Indicates the type of Kubernetes object this manifest is defining — in this case, a Namespace.
+	
+kind: <kind-of-resource-you-are-creating>
+apiVersion: v1
+metadata:
+	name: <resource-name-you-want>  ( create chesey resources ki em namespace ivvabotunnaru anedhi )
+	
+spec: ( RAM, CPU, Harddisk etc )
+
+	If you're deploying your expense management application, this namespace can isolate all related pods, services, and deployments under expense for better management and security.
+
+	pushing this manifest files to github and clone to the linux server and kubectl dwaara apply cheyyali manifest files ni so that resources apply avutaayi
+	
+	kubectl create -f 01-namespace.yaml   ( namespace created)
+	
+	kubectl get namespace  ( we can see the expense namespace to be created )
+	
+	kubectl apply -f 01-namespace.yaml ( oka vela create avvakapote create avutundhi lekapote showing warning )
+	
+	kubectl delete -f 01-namespace.yaml ( deleting namespace)
+	
+	kubectl apply -f 01-namespace.yaml  ( we should use apply always instead of create )
+	
+	
+--> docker lo image ni run chestey container vostundhi, so ikkada kubernetes lo image ni run chestey pod antaamu
+
+pod
+======
+
+--> pod is the smallest deployable ( runnable ) unit in k8. pod can have multiple containers 1 or many ( minimum 1 )
+
+docker --> image --> container
+k8 --> image --> pod
+
+--> create 02-pod.yaml in local in k8-resources
+
+	https://github.com/DAWS-82S/k8-resources/blob/main/02-pod.yaml
+	
+	follow same steps above 01-namespace.yaml ( but ikkada manam name space specify cheyatledhu so idhi default name space lo create ayi vuntundhi)
+	
+	kubectl exec -it nginx -- bash  ( login to nginx means inside that nginx pod)
+	kubectl get pods --all-namespaces
+	kubectl exec -it nginx --namespace=expense -- bash ( By default, kubectl operates in the default namespace. If your pod is in a different namespace, )
+
+	
+	kubectl delete -f 02-pod.yaml
+	
+	manam expense namespace lo nginx pod create avvalani cheptey apudu give metadata inside yaml file as
+	metadata:
+		name: nginx
+		namespace: expense
+		
+	kubectl apply -f 02-pod.yaml
+	
+	kubectl get pods  ( ikkada default namespace lo ni pods maatramey choopistundhi )
+	
+	kubectl get pods -n expense  ( ikkada expense name space loni pods ni choopistundhi )
+	
+--> create 03-multi-container.yaml in local in k8-resources ( without this command: ["sleep", "1000"] in file)
+
+	https://github.com/DAWS-82S/k8-resources/blob/main/03-multi-container.yaml
+	
+	follow same steps above 01-namespace.yaml
+	
+	kubectl get pods
+	
+	so ikkada status not ready vostundhi antey kubernetes lo oka popular error vundhi edyna pod lo image ni teesukuni container run chesinapudu oka error vostuntundhi adhey CrashLoopBackOff error anna maata adhi endhuku vostundhantey and manaki edhi ready ga ledho telusukovalantey
+	
+	kubectl describe pod multi-containers  ( we can see the what container not running and why generally container run cheyadaaniki infinite times oka command vuntundhi like CMD in docker but ikkada almalinux ki aa CMD ledhu so we can give some command to run for sometime for practice )
+	
+	command: ["sleep", "1000"]
+	
+	kubectl apply  ( ikkada yaml loni pratidhi update laaga teesukoleni ani choopistundhi apudu manam delete chesi malli apply cheyaali )
+	
+	kubectl delete
+
+	kubectl apply 
+
+	kubectl get pods  ( now both are running )
+	
+	kubectl exec -it multi-containers -- bash (so ikkada bydefault ga yaml file lo ni first container loki veltundhi adhey manam second container loki vellali 	anukuntey apudu)
+	
+	curl localhost ani istey nginx loki vochindhi do exit adhey nenu ipudu second container loki vellali anukuntey give the command as
+	
+	kubectl exec -it multi-containers -c almalinux -- bash ( now we are in almalinux but ikkada curl localhost ani istey still we are inside nginx  )
+	
+-->all containers in pod share the same IP and storage
+
+	so ikkada container or pod edyna ephimeral ipudu oka pod lo nginx container run avutundhi anukundham apudu nginx logs ni generate chestundhi kadha but logs ni inside pod lo vunchdam safe or not ? not safe
+	
+	so manam logs ni ELK stak lo store chestuvuntaam dhaani kosam manam oka sidecar container ni create chestaam inside pod ee sidecar container em chestundhi nginx container yokka path /var/log/nginx ni access chesi ELK ki logs ni push chestundhi but ikkada manaki oka doubt raavochu idhey push responsibility ni nginx container ki istey nginx responsibility deviate avutundhi so sidecar container yokka responsibilty enatantey only nginx container logs yokka location ni access chesi vochina logs annintini continuous ga shift cheyadam ELK ki, so ilaanti situation lo manaki multiple containers use avutundhi
+
+--> multiple containers are useful in few applications like shipping logs through sidecars
+
+container vs pod
+=================
+pod is the smallest deployable ( runnable ) unit in k8. pod can have multiple containers 1 or many ( minimum 1 )
+all containers in pod share the same IP and storage
+multiple containers are useful in few applications like shipping logs through sidecars
+
+--> create 04-labels.yaml in local in k8-resources
+
+	https://github.com/DAWS-82S/k8-resources/blob/main/04-lables.yaml
+	
+	kubectl apply
+	
+	kubectl getpods ( ee labels anedhi internal resources ni select chesukovadaani use avutundhi and services aney concept vochinapudu labels artam avutundhi )
+	
+--> create 05-annotations.yaml in local in k8-resources
+	
+	https://github.com/DAWS-82S/k8-resources/blob/main/05-annotations.yaml
+	
+	ee annotations anedhi external resources ni select chesukovadaani use avutundhi
+	
+	kubectl apply
+	
+	kubectl getpods
+	
+
+-> deleting the cluster manam khachitam ga cluster ni delete cheyali kubernetes is costly so to avoid the charges we must delete cluster 
+
+	eksctl delete cluster --config-file=eks.yaml
+	
+	and delete the instance as well to avoid the charges  ( terraform destroy ) 
+	
+	so cloudformation --> stacks kooda automatic ga delete avutaayi ( just see this to understand how created and deleted )
+
+
+
+
+
+
+
+
+
+
+
+
+
+--> how we used kubernetes in onpremise ?

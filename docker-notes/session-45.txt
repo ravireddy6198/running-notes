@@ -1,0 +1,266 @@
+
+
+															Session - 45
+														====================
+														
+														
+														
+														
+														
+														
+														
+														
+https://github.com/DAWS-82S/concepts/blob/main/resize-dis.md
+
+https://github.com/ravireddy6198/docker-instance-setup
+
+to increase the volume size in docker above link used while creating the instance through terraform ( in that using the second link  script executes and it will distribute the volumes a/c to the instructions provided 
+
+
+docker build -t username/imagename:version . --> Dockerfile is required in current folder
+docker tag imagename:version username/imagename:version
+docker login
+docker push username/imagename:version
+docker run -d -p 80:80 username/imagename:version
+docker exec -it username/imagename:version bash
+
+FROM --> should be the first instruction to represent base OS
+RUN --> Used to configure or install packages
+CMD --> executes at the time of container creation, this command should container running infinite time
+COPY --> copies from local workspace to image
+ADD --> same as copy but 2 extra capabilities, directly downloads from internet or untar directly
+LABEL --> adds metadata, used for filter. key value pairs
+EXPOSE --> doc purpose, tell the users about ports opened by container
+ENV --> sets the env variables in the container, we can use at build time also
+ENTRYPOINT --> cant' override, CMD can provide default args, we can always override default args
+USER --> set the user to run container
+WORKDIR --> sets the working directory for container/image
+ARG --> build time variables, in an exceptional case can be first instruction to supply base os version
+
+ONBUILD
+=======
+we can set some conditions when some user is using our image
+
+nginx --> alamlinux:9, install nginx, removes index.html
+
+we will force the users to keep index.html in their workspace for mandatory
+
+if you are using default n/w docker containers can't communicate with each other
+
+
+
+ONBUILD
+---------
+
+
+is used to trigger few instructions at build when a user is using our image.
+
+
+--> we can set some conditions when some user is using our image 
+
+--> evaryna mana nginx image ni use chesukovalantey vaallu vaalla own index.html page ni ivvali
+
+nginx --> almalinux:9, install nginx, we have removed default index.html in our image, we will force the users to keep index.html in their workspace for mandatory
+
+create ONBUILD folder Dockerfile
+
+FROM almalinux:9
+RUN dnf install nginx -y
+RUN rm -rf /usr/share/nginx/html/index.html
+# this executes if any user uses your image as their base OS
+ONBUILD COPY index.html /usr/share/nginx/html/index.html
+CMD ["nginx", "-g", "daemon off;"]
+
+--> docker build we cannot see the onbuild execution  so we can enforcing the index.html if any user uses your image as their base OS for that
+
+--> create test folder and Dockerfile and index.html
+
+--> docker build we can see the onbuild execution and docker run now we have to see the browser 
+
+
+
+ONBUILD executes if any user uses your image as their base OS
+
+expense project using docker :
+==================================
+
+--> MYSQL first containerize for that we have to use mysql official image why because if we install mysql on top of our base OS we dont have much understand about mysql controls 
+
+--> we can use MYSQL_ROOT_PASSWORD as a ENV variable idhi kachitam ga ivvali endhukante mysql install chesetapudu root password lekapote malli dhanni evaru open cheyaleru oka vela manam MYSQL_ROOT_PASSWORD voddu anukuntey MYSQL_ALLOW_EMPTY_PASSWORD anedhi yes pettali 
+
+	When a container is started for the first time, a new database with the specified name will be created and initialized with the provided configuration variables. Furthermore, it will execute files with extensions .sh, .sql and .sql.gz that are found in /docker-entrypoint-initdb.d. Files will be executed in alphabetical order. You can easily populate your mysql services by mounting a SQL dump into that directory⁠ and provide custom images⁠ with contributed data. SQL files will be imported by default to the database specified by the MYSQL_DATABASE variable.
+	
+-->    https://github.com/DAWS-82S/expense-docker/blob/main/mysql/Dockerfile          for the folder structure we can see github
+
+			docker build 
+			docker run ( here we cannot expose the mysql to public endukantey mysql ni backend maatramey access chestey chaalu )
+			docker ps
+			docker exec -it mysql bash
+			mysql -u root -pExpenseApp@1
+
+			
+			now we are able to see the logged in mysql command prompt 
+			mysql> show databases;
+			
+--> so mysql ki IP address evaru isturraru ante (ifconfig)
+	docker inspect mysql
+	
+--> aws ISP --> ec2 instance Ip getting from AWS ISP ( here ethernet attatched in aws network --> once docker container created inside instance one virtual modem created having some IP --> this modem allocates the IP for all containers 
+
+Backend container :
+======================
+
+--> base os as node for backend  ( okavela java application ayitey we can use java image as base OS python also same like that )
+
+--> inside docker file manam oka path set cheyalantey WORKDIR 
+	WORKDIR /opt/backend ( if it is not there it will create by docker)
+	container restart chesina prati saari IP address change avutundhi so manam DNS use chestaam 
+	
+	
+	docker build 
+	
+	docker run backend is not running so we can check docker ps -a
+	
+	docker logs backend  ( here we observer mysql not found ante mysql ni backend access cheyalekapotondhi anna maata ) so problem entantey
+	
+	docker inspect backend  ( so backend ki IP address ichindhi evarantey dockerey)
+	
+whenever docker container is created and running docker creates one default bridge network (like modem ) having some IP and whenever container are running this virtual modem or default bridge n/w assigning IP's to docker containers 
+	
+docker default network lo ( docker network like docker virtual modem ) containers oka dhaanikokati connect avvalevu that is one limitation in containers for that docker recommended to allow you to create your own network 
+	
+if you are using default n/w docker containers can't communicate with  each other 
+	
+	docker network ( here we can see the options to create our own network by docker )
+	
+	docker network create expense
+	docker network ls  ( in docker network bridge and host types are there our expense network is bridge type )
+	
+so ipudu manam em cheyalantey default network lo vundey connections ni cut chesi mana expense network ki connect cheyaali 
+	
+	docker network disconnect bridge mysql ( here bridge is default network name , mysql wants to be disconnected ) 
+	
+	docker network connect expense mysql ( expense project/network ki mysql ni connect chestundhi )
+	
+	docker inspect mysql   ( we can see the total info and see the IP 172.18.0.2 noted idhi evaru ichaarantey manam docker network create chesinapudu oka bridge network create avutundhi means mana own virtual modem create avutundhi with IP 172.18.0.1 so antey manam default bridge network ni disconnect chesi mana own expense bridge network ki mysql ni attatch chesaamu annamaata  )
+	
+	docker rm backend
+	
+	docker run -d --name backend --network expense backend:1.0.0  ( here this backend will be running  under expense bridge network )
+	
+	docker inspect backend ( now we can see the IP of this backend container contains 172.18.0.3 means our own expense bridge network assigned this IP )
+	
+	docker ps
+	
+	docker logs backend ( we can see the "APP started on Port 8080 )
+	
+	docker exec -it backend bash
+	
+	telnet mysql ( here command is not working inside container so manam ipudu ee container lopala vundey OS ento telusukuni dhaaniki sambandhinchina command 	
+					ni install chestaamu )
+	
+	cat /etc/*release ( here we can see the NAME as Debian OS goto google in browser and search Debian Linux install telnect means telnet command ni install 
+							install cheydaaniki search chestunnam because base OS not contains all commands )
+							
+	apt update && apt upgrade -y
+						
+	
+	apt-get install telnet -y  ( if it is not installed do apt-get update )
+	
+	telnet mysql 3306  ( it is showing trying 172.18.0.2 to connected to mydsql  means mysql connect ayindhi backend lo nunchi ani )
+
+note 
+------
+--> so we should not use docker default network and we should create your own bridge network ( here is expense bridge network )	
+
+
+Fronend container creation
+================================
+
+
+https://github.com/DAWS-82S/expense-docker/blob/main/frontend/Dockerfile
+	
+--> nginx image as a base OS
+
+FROM nginx:stable-alpine3.20-perl
+RUN rm -rf /usr/share/nginx/html/index.html
+COPY code /usr/share/nginx/html/
+
+	docker build
+	
+	docker run -d -p 80:80 --name frontend --network expense frontend:1.0.0
+	
+	docker ps
+	
+	docker exec -it frontend bash
+	
+	cd /etc/nginx/nginx
+	
+	cat nginx.conf
+	
+here nginx.conf info minimal ga vundhi but actual nginx.conf file anedhi info chala vuntundhi so ee minimal info from nginx.conf manam nammalemu so manam mana own nginx.conf use cheyaali refer below link for sample nginx.conf file
+
+https://gist.github.com/mreferre/38297db0c7a279a25d234e572c975b75
+
+we have to edit the sample nginx.conf file to our own nginx.conf file with expense project configuration changes 
+
+FROM nginx:stable-alpine3.20-perl
+RUN rm -rf /usr/share/nginx/html/index.html
+RUN rm -rf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY code /usr/share/nginx/html/
+
+	docker rm -f frontend
+
+	docker build
+	
+	docker run
+	
+	docker ps
+	
+now in browser we have to check the forntend deployment using container and add the expenses to see the application working or not 
+	
+	docker exec -it frontend bash
+	
+	cat /etc/nginx/nginx.conf
+	
+	exit
+	
+	docker images
+	
+we can see the size of frontend and backend and mysql again size is high just like VM's so we can optimise the size of containers and add security. we will see this in tomorrow session 
+	
+	
+	
+	
+	
+FROM node:20
+WORKDIR /opt/backend
+COPY package.json .
+COPY *.js .
+ENV DB_HOST="mysql"
+RUN npm install
+CMD ["node", "index.js"]
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+--> how IP address is allocated to docker container ?

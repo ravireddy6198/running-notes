@@ -1,0 +1,218 @@
+
+																		Session - 53
+																	=========================
+																
+																
+																
+																
+																
+		
+
+--> when come to volumes lets discuss it is not safe to store the data inside k8 cluster it can be worker nodes or whatever , it is always voice kepp the data oustside of the cluster like EBS and EFS volumes so, we have same both EBS and EFS static and dynamic provisioning , static means we have to create the volumes manually and creates the PV, equivalent PV manually, dynamic means so we have storage class created and when you claim for the storage , storage class creates the volume and it will create the PV automatically for us 
+
+--> so for Deployment, is not mandatory to create PV, PVC , but for statefulset it is mandatory to have PV and PVC 
+	so first Deployment object elaa behave chestundho chooddamu
+															
+Deployment
+==========
+--> create 16-deployment.yaml in k8-resources folder 
+
+	https://github.com/DAWS-82S/k8-resources/blob/main/16-deployment.yaml
+	
+	ka 16-deployment.yaml, kubectl get pods ( we can see 3 pods running ) ipudu oka pod loki exec avudhaam 
+	kubectl get svc ( LB create ayindhi )
+	kubectl exec -it < anyp-pod-name> -- bash ( we are inside pod )
+	nslookup nginx antey service name ni hit chestunna , so we will get the IP ( generally DNS ni hit chestey IP vostundhi ) but nslookup not found 
+	apt update
+	apt install dnsutils -y
+	nslookup nginx  ( now we can see the IP of nginx service this IP is ClusterIP of LB type when we see in kubectl get svc) 
+
+Note  : when you hit nslookup on service name, you will get ClusterIP as address
+-----
+
+--> now we can see the statefulset chooddamu 
+
+You need to attach headless service to statefulset. Why to attach?
+
+--> create 17-statefulset.yaml in k8-resources folder ( let us create statefulset for nginx ) 
+	
+	https://github.com/DAWS-82S/k8-resources/blob/main/17-statefulset.yaml
+	
+	what is headless service? headless service will have no ClusterIP. It will be attached to statefulset
+	
+	statefulset create chestunna (  ) 
+	statefulset create cheyalantey manaki PV and PVC mandatory, because it is stateful application if you are ging to create an application to statefulset , it is stateful we need PV and PVC
+	PV and PVC kaavalantey wee need to choose either EBS or EFS kadha , let us choose EBS Dynamic , now we can install the drivers first for that 
+	
+	kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.40" 
+	worker nodes ki EBS permission ivvali 
+	take one worker node --> security --> IAM role --> attach policies --> EbsCsi --> add permissions 
+	so EBS Dynamic annapudu storageClass create cheyaali kadha
+	ka 03-ebs-sc.yaml ( cd volumes ) 
+	add 15-53 lines in 17-statefulset.yaml  ( ClusterIP none vundhantey adhi headless service ani meaning and Instead of creating a PVC resource, you can directly provide in statefulset,   volumeClaimTemplates: this attributes is equivalent to PVC resource anna maata ikkada manam seperate ga chesukunna ala ichina rendu same ) 
+	now let us see how statefulset behaves
+	
+	ka 17-statefulset.yaml, kubectl get svc ( nginx headless service create ayindhi, ClusterIP none vundhi ) 
+	kubectl get pods ( ikkada choostey nginx-0 create ayindhi , 1 pending, again we can see 0,1 creating 2 is pending, again we can see 0,1,2, created antey Deployment lo ayitey pods at a time create avutaayi but ikkada statefulset lo ayitey 0ne by one create avutaayi orderly manner anna maata antey first oka pod create avutundhi adhi full ga running state loki vochaaka next inkoka pod create avutundhi so ala enni replicas vuntey ala create avutaayi but endhukila create avutaayi antey this is stateful application kadha anni sync lo vundaali apudu okati fail ayi okati create ayitey problem avutundhi 
+	
+Note :  pods in statefulset will be created in orderly manner. 
+-------
+
+--> pods creation we can see the name of the pods in Deployment ( <Deployment-name>-<Replicaset-Random-no>-<pod-random-no> ) , but for stateful set we can see the pod name are 
+	unique means ( <statefulset-name>-0,1,2) so endhukila antey ipudu every pod ki dhaani own storage vuntundhi statefulset lo but Deployment pods ki oka vela PV and PVC ichinaa vaati own vundadhanna maata for that
+	
+	kubectl get PV,PVC ( here we can observe every pod ki dhaani yokka own storage vuntundhi, okavela meeru pods delete chestey malli idhi adhey storage ki attach avvali ( here see below 3 ), so oka vela random number vundhi anukondi it is impossible )
+
+deployment pods names are choosen as random. but statefulset names are unique. <statefulset-name>-0, <statefulset-name>-1
+
+why statefulset have same names, pods preserve their identity?
+nginx-0 delete chesaaru, statefulset creates immidiately another pod nginx-0 and it should attach to its own storage ( ikkada ownstorage ni elaa identify chestundhantey )through naming convention. so below is the naming convention 
+ persistentvolumeclaim/www-nginx-0 ( ee name ekkadinunchi vochindhi antey pvc/volumename-podname ) so ipudu dheenni deete chesaanu anukondi
+ 
+	kubectl delete pod nginx-0 ( so ikkada malli pod create avvali kadha )
+	kubectl get pods ( create ayi malli velli adhey storage ni attach avvali kadha antey oka vela nenu Random number ni kaani choose chesukuntey statefulset develop chesetapudu as a developer then I cannot find the storage )
+	
+	kubectl exec -it nginx-0 -- bash ( so ipudu nenu nginx-0 pod loki veltunna )
+	apt update
+	apt install dnsutils -y
+	nslookup nginx-headless  ( here may be Depoyment pods kooda attach ayinattunnayi so)
+	kubectl delete -f 16-deployment.yaml ( delete the Deployment)
+	again exec 
+	nslookup nginx-headless ( here we can see the mana pods yokka IP address lu  so manam below command choostey)
+	kubectl get pods -o wide ( here we can see the POD IP addresses to match the above command ) 
+	so endhukila vostundhantey this is exactly required for Databases endhukantey ipudu manam oka 1st DB worker node ki create operation ichinapudu , aa 1st worker node yokka responsibility enti antey cluster lo migata vallu evarevu vunnaro ( other worker nodes ) vallandhariki aa data ni pampinchaali , ala pampinchaalantey aa 1st DB worker node ki elaa telustundhi dhaaniki , elaa telustundhantey nslookup on headless service pyna (nslookup nginx-headless) ilaa istundhi ilaa ichinapudu dhaaniki address lu anni telustaayi , so ala tana own address ki kaakunda migata vaatannintiki data ni pampistundhi 
+	
+	any cluster not only DB , any cluster lo oka worker node ki oka request vochindhi , aa data ni migata worker nodes ki sync cheyaali anukunnapudu , aa cluster lo migata vaallu evarevu vunnaro tanaki teliyaali, tanaki teliyaali antey adhi em chestundhi antey apudu headless service pyna nslookup chesinapudu internal ga vaati yokka IP addreess lu ( migata worker nodes yokka IP addresses ) anni vostaayi, tana Ip address ni vodilesi migata vaatannintiki pampistundhi response that is why we need headless service is attached to statefulset
+	
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Deployment vs Statefulset
+============================
+1. Deployment is for stateless applications like frontend, backend, etc. Statefulset is for DB related applications like MySQL, ELK, Prometheus, Queue apps, etc.
+2. Statefulset requires headless service and normal service to be attached. Deployment will not have stateless service
+3. PV and PVC are mandatory to statefulset, they create individual storages for each pod. PV and PVC for deployment creates single storage
+4. Statefulset pods will be created in orderly manner. Deployment pods will be created parellely
+5. Deployment pods names are choosen random. Statefulset pods keep the same identity. like statefulset-name-0, -1, etc.
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	
+	kubectl delete -f 17-statefulset.yaml ( statefulset deleted )
+	
+	so ipudu manam mana expense project mysql idhi use chesi create cheddam for that
+	
+	create repo k8-expense-volumes repo 
+	git clone repo,
+	first namespace vundaali taruvata mysql ( for mysql emem create cheyalantey Headless service, normal service for LBing, satefulset ) refer below
+	
+	https://github.com/DAWS-82S/k8-expense-volumes/blob/main/mysql/manifest.yaml
+	ikkada normal service kooda mandatory endhukantey normal service is for LBing purpose , backend application DB ni hit cheyaali kadha, backend application DB ni elaa hit chestundhi mysql normal service pyna hit chestundhi, mysql normal service is for LBing, mysql headless is for clustering purpose , so headless ki normal service vunde difference enti antey ClusterIP: None ( idhi headless service ki vuntundhi ) other than that everything is same 
+	mysql database ni ea directoty store chestundhantey /var/lib/mysql ee location lo mysql data ni store chestundhi 
+	indhaaka manam statefulset avanni delete chesaamu kadha volumes meeru oka saari check cheyandi endhukantey retention policy is retain means LifeCycle policy is retain , so ikkada emavutundhantey aa 1 gb volume delete avvakunda alaaney vuntundhi , so you need to delete the volume manually orelse meeru practice chestunnaru kaabatti storageClass retention policy vochesi life cycle policy vochesi delete pettukondi for now
+	delete the 3 volumes manually in aws EBS created for statefulset
+	so 03-ebs-sc.yaml lo choostey recliamPolicy: delete pettukunnarantey meeru oka vela marchipoyina volumes delete cheyadam manual ga delete pettukunnapudu avi automatic ga delete avutaayi 
+	so manam iudu statefulset use chesi expense project create chestunnamu antey
+	
+	ka 01-namespace.yaml ( cd k8-expense-volumes )
+	ka manifest.yaml ( cd mysql ) 
+	install kubens  (for namespace )
+	
+	sudo git clone https://github.com/ahmetb/kubectx /opt/kubectx
+	sudo ln -s /opt/kubectx/kubens /usr/local/bin/kubens
+	
+	cd k8-expense-volumes/mysql
+	alaagey manaki k9s anedhi vundhi we can install k9s as well that will give user interface 
+	
+	curl -sS https://webinstall.dev/k9s | bash
+	mobaxterm lo inko session ope chesi k9s ani istey chaalu aws configure lo nunchi adhi teesukuni ikkada manaki oka chinna userinterfae laaga vostundhanna maata 
+	shift+:  pattukuni veltey namespace kaavali kaabatti namespace ani type chestey manaki ikkada namespace kanipistundhi , akkada expense namespace loki veletey mysql-0,1 pods kooda kanipistaayi adhey manaki okavela statefulset kaavali anukuntey statefulset ani type chestey statefulset kanipistundhi allagey service kooda shift+: pattukuni typestey service kooda kanapadutundhi and SHIFT+: pod ikkada pod options kooda kanipistunnayi nenu dhaaniloki exec avvali anukuntey pod select chesi "s" press chestey naaku shell access vostundhi direct ga , allagey logs kaavali anukuntey "l" press chestey vostaayi , esc for quit from logs, and pod ni delete cheyalantey cntrl+d ( here we can see again pod creating because of Replicas ) so this is ok chinna userinteface chaala baaguntundhi using k9s CLI 
+	
+	so chooddamu databse lu anni create ayyayo ledho now we can go inside the mysql-0 pod using k9s CLI and give ( mysql -u root -pExpenseApp@1, show databases, use transactions, show tables we can see the transactions table
+	
+	you can always override environment variables at runtime through manifest files ( image lo env peditey image loki velli malli rebuild cheyaali kaabatti )
+	create backend  ( here we can use config map )
+	https://github.com/DAWS-82S/k8-expense-volumes/blob/main/backend/manifest.yaml
+	ka manifest.yaml 
+	we can see k9s cli for backend creation, logs, shift+: configmap ( for d describe )
+	
+	creta frontend 
+	https://github.com/DAWS-82S/k8-expense-volumes/blob/main/frontend/manifest.yaml
+	frontend lo nginx configuration vundhi kadha ( nginx.conf) we can keep that also in that configmap, apart from code we can keep everything inside configuration , we can treat everything treat as configuration, ipudu oka vela repu  manaki nginx configuration lo oka kotta backend component ( reviews ) vochindhanukondi apudu velli inkokati add cheyalantey apudu em cheyaai ikkada (expense-docker lo) nginx.conf lo add one more location /ratings ani ivvali apudu nginx image ni rebuild chesi redploy cheyalsi vostundhi ala kaakunda ngix.conf ney teesukelli configMap lo pettochu so let's see configMap aney resource create chesi ( see the frontend repo manifest.yaml file ) nginx configuration ni ivvali and aa configuration ni pod to mount cheyaali 
+	what is nginx configuratio file yokka full path enti ?
+	/etc/nginx/nginx.conf
+	add nginx.conf file info into a configMap resources see the repo to understand  ( key vochesi  nginx.conf: , value vochesi nginx.conf file info ) 
+	delete the  location /api/ {
+        	    proxy_pass http://backend:8080/; ( here frontend backend ni connect avvaledhu delete chestey )
+    	      }
+	imagine frontend okatey vundhi backend inka develop cheyaledhu anukondi,
+	configuration pettamu sare dhanni mount cheyaali kadha, ok configuration file ni pod ki through configMap mount cheyaali antey ( that is the physical location ) you have to mount it in which location /etc/nginx/nginx.conf lo manam mount cheyaali so, ee configuration ni kooda manam volume laaga treat chestaamu anna maata ( we can see the repo ( container kindha pod lo volumes ni mention cheyaali see the repo ) so, i am creating ghe volume from the configMap ipudu dheenni manam mount  cheyaali , ea path lo mount cheyaali /etc/nginx/nginx.conf path to mount cheyaali , so ipudu meeru image lo pettina nginx.conf ni adhi refer cheyadhu it will refer 85 - 102 line in repo 
+	
+	ka manifest.yaml ( cd frontend ) 
+	using kps --> goto pod --> take the shell access --> cd /etc/nginx --> cat nginx.conf --> ikkada choostey manaki /api/ location ledhu ( prviously we deleted right )--> goto get service take LB DNS --> serach in browser front end app running but backend ready ga ledhu once backend ready ayyaka frontend vallaki backend vallu chepparu backend ready ayindhi and meeru meekochey requests ni /api/ dwaara backend ki forward cheyamani chepparu apudu ( general docker file nginx.conf lo /api/ location add chesi image ni rebuild and redeploy cheyaali but alaa kaakundaa ) ikkada configuration ni runtime lo add chestunnam kaabatti we can add the /api/ location into  ( image ni rebuild chesey vuddesham naaku ledhu ) frontend manifest file ( so nenu image i rebuild cheyatledhu ) 
+	
+	again ka manifest.yaml ( we can see the configuration changes using exec pod , or got configmap using k9s --> nginx --> d for describe here we can see the /api/ location, esc )
+	so, ipudu pods ni restart cheyaalanna maata endhukantey ipudundey pod paata configuration ni mount chesukoni vundhi kaabatti, restart antey simple delete chestey saripotundhi cntrl+d again pod is recreating with new configuration check inside pod for new configuration cd /etc/nginx/ cat nginx.congf 
+	
+	so now frontend connected to backend check using service LB DNS in browser add the expense to work the app perfectly 
+	image rebuild cheyadmantey anta easy task kaadhu production lo endhukantey, DEV, UAT lo anninti lo chesi check chesina taruvata production check cheyaali so anta easy task kaadhu so manam configuration ni runtime lo change chesey laaga pettukuntey that is good for applications 
+
+Autoscaling : we have 2 types
+=============
+Vertical, Horizontal
+
+Vertical scaling --> 2CPU, 4GB, 20GB HD,  mana app anedhi baaga popular ayipoyindhi public heavy ga use cheyadam start chesaaru apudu manaki 2 options vertical scaling lo adhey server lo increase the resources to--> 4CPU 8GB 100GB HD
+
+Horizontal scaling --> create another server with 2CPU, 4GB, 20GB HD and add to LB
+
+--> which one is good , vertical scaling lo downtime vuntundhi nenu okey server lo resources penchaali ante nenu aa server ni stop cheyaali resources annintini increase chesi 
+	malli start cheyaali so vertical lo downtime vuntundi, adhey horizantal ayitey oka ser ver lo resources anni consume ayipoyinaayi create another server anna maata, avasaram lenapudu autscaling lo server ni delete chestaam
+	
+--> so ipudu mana pods ki in any VM's or  in container environment Horizantal scaling is preffered , ipudu mana pods pyna pressure periginapudu  or mana pods ki traffic 
+	periginapudu we need to scale it , so manaki ikkada k8 lo entantey HPA ( Horizantal pod autoscaler ) idhi oka resources in k8,last time we saw autoscling in CPU utilisation meedha chesaam, ikkada kooda Horizantal pod autoscaler create chestey dheenni deployment ki attach chesaamu ante mee utilisation periginapudu automatic ga pods anedhi scale avutaayi, scaling ante conept enti minimum enni kaavali maximum enni kaavali ea parameter meedha scale cheyaali and dhenini scale cheyaali l
+	
+4 individual houses, 
+
+HPA in K8
+------------
+We should have metrics server installed in k8  ( mana pod yokka resources ni measure chestu vuntundhi idhi manaki automatic ga install ayindhi EKS to paate vochindhi matrics
+server anna maata antey measure chestundhanna maata manaki pod yokka resources enta vunnayi ani  )
+
+--> kubectl get pods -n kube-system  ( we can see the metric server , and also in aws we can see eks service --> clusters --> expense-1 --> add-ons lo we can see the metric server idhi usage ni measure chestu vuntundhi )
+
+--> kubectl top pod -n expense( ani istey adhi enta CPU, and enta memory ni consume chestundho akkada choopistu vuntundhi choodandi ) 
+
+--> manam oka concept ni discuss chesaamu pods dynamic ga resources ni consume chestunnapudu adhi entire server yokka resources ni consume chesey chances vunnayi kadha , what 
+	is solution for that ?  
+	oka pod ki manam soft limit and hard limit set chesaamu ala set chesinapudu then you can understand dhaaniki manam allocation chesindhi enta adhi enta use chestundhi anedhi now we should to make HPA work , we should mention the resources for the pod antey which means mee pod enni resources ni consume cheyochu ani meeru mention chestey then HPA will work otherwise HPA will not work endhukante dhaaniki teliyadhu kadha limit enta ichaaru meeru anedhi 
+	
+	https://github.com/DAWS-82S/k8-expense-volumes/blob/main/frontend/manifest.yaml
+	
+	referabove repo we can add the 101, 105 limits  ( so ikkada resource limits mention chesaamu anna maata ) 
+	kubectl delete deployment frontend -n expense  ( nginx Deployment ni delete chestunna )
+	
+	ka manifest.yaml ( cd frontend )
+	using k9s cli we can see the frontend pod here manam choodochu cpu, memory details migata vaatikei choostey n/a vuntundhi endhukantey manam frontend ki maatramey chesaamu limits ni kaabatti 
+	so, ipudu HPA anedhi % of allocation enta dhaani pyna adhi currently enta consume chestundhi aney base pyna it can autoscale 
+	add 133-152 lines for the above repo 
+	ka manifest.yaml ( cd frontend )
+	using k9s we can see shift+: hpa choostey adhi akkada measure chestu vuntundhi meeru 5% ichaaru ( in production it will be 70% )  indhulo present enta vundhi anedhi ee HPA choosukuntundhi ipudu kaani nenu pod pyna stress apply chesaanu anukondi aa consumption anedhi perugutundhi kadha so let me apply pressure 
+	using k9s goto service take frontend LB DNS and using git bash cd k8-expense-volumes and do
+	
+	while true;do curl LB DNS; done    ( means ipudu nenu requests pampistu vunna nonstop ga loop lo ipudu dheeni consumption anedhi perugutundhi )
+	using k9s we can see the hpa see the frontend cpu in live, but ikkada CPU peragatledhu oka system nunchey requests pampistey kudaradhu multiple server nunchi requests raavali andhukosam apache bench anedhi okati vundhi for that
+	search apache bench install rhel9 ( idhi em chestundhantey manaki parallel requests ni pampistundhi ) install cheyaali 
+	oka system nunchey requests vostey adhi easy ga handle chestundhi pod, kaani manaki kaavalsindhi entantey multiple persons mutiple requests pampaali so
+	
+	ab -n 5000 -c 100 <LB-url>/ ( means parallel ga 100 mandhi 5000 requsts ni pampistunnatlu ) remove the https at the end add the / it handled easily so 
+	ab -n 50000 -c 100 <LB-url>/
+	using k9s we can see the hpa cpu inceased reaches 5% above replicas are created ( see the frontend pods increased ) automatically so, spped vundhi pods replicas create avvadam vm's lo kante kooda 
+	5000 requests pampinchina kooda 100% requests completed in 290(longest request ) ms anta twaraga manam 5000 requests ni pod 290 ms lo complete chesindhi that is the power of pod 
+	
+	so this HPA, and manaki ikkada report kooda vostundhi 
+
+
+--> vertical scaling vs horizantal scaling ?
+	
+	verrtical scaling means with in the same instance we increase the resources like CPU, RAM, HD whatever, horizantal scaling means create the another instance with same kind of resources and added to the LB , there is a downtime in vertical scaling , there is no downtime in horizantal scaling , so mostly horizantal scaling is preffered 
+	horizantal scaling increase high availabitiy, downtime vundadhu , easy to resize to our needs 
+	
+--> in aws RDS gurantees the autoscaling etc everthing taken care aws, but in onpremise use chesinapudu oka peed DB team vuntundhi vallue master node ( cluster based ) laaga create chesi HA lo vunchutaaru and autoscaling etc ( so DB never part of k8 maximum frontend and backend apps ki maatramey use chestaamu for databases in k8 logsstorage like ELK, promethis, grafana vaati kosam maatramey k8 lo use chetaamu end user data like DB ki maatram k8 ni use cheyamu for DB we can go for either aws RDS or on-premise 
+
+--> delete everything like svc, Deployments etc then only we can delete the cluster so, cluster anedhi proper ga delet avutundhi and also volumes as well 

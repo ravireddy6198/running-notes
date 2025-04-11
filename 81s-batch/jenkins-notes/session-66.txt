@@ -1,0 +1,205 @@
+
+																			Session - 66
+																		=====================
+																		
+																		
+																		
+																		
+																		
+																		
+--> infra setup CICD ( means CI and CD dwaara infra setup cheyadam jenkins use chesi )
+--> jenkins lo parallel stages vuntaayi, bydefault stages anedhi sequential stages and parallel stages option kooda vundhi jenkins lo apudu manaku konchem time anedhi save avutundhi oka stage inko stage pyna dependency lenapudu we can go for parallel stages 
+	
+	so once all infra create chesina taruvata jenkins dwaara, manam applications deploy cheyadam chaala easy anna maata 
+	
+	https://github.com/daws-81s/cicd-tools
+	
+	using above repo create and configure jenkins and agent-1 setup through terraform 
+	
+	Plugins:
+
+		Pipeline stage view
+		Pipeline Utility Steps
+		AWS Credentials
+		AWS Steps
+		Rebuild
+		Ansi Color
+		SonarScanner
+		
+	add credentials for AGENT-1 and aws credentials  ( in manageJenkins --> credentials --> system --> Global Credentials --> create credentials )
+	systemctl restart jenkins
+	first thing edyna oka project start ayyetapudu prati okkaru cheyalsindhi infrastructure ni mottam create chesi pettestey, and infrastructure epudytey ready ga vuntunndho base dhaani pyna applications anedhi chaala fast ga deploy ayipotaayi so manam 
+
+vpc
+sg
+
+	bastion
+	rds
+	eks
+	acm
+	ecr
+	cdn
+
+alb ( dheeniki maatram acm pyna dependency vundhi migata bastion - cdn no dependency so parallel create cheyochu jenkins pipeline lo ) 
+
+so ilaa parallel ga create avvalantey mana jenkis server computation power ekkuva vundaali endhukantey RDS and EKS create avvalantey chaala computation power kaavali kaabatti 
+	so below are the pipeline steps like 00-vpc lo ni pipeline ni build chestey adhi sequential ga and parallel ga jobs run chestu veltundhi jenkinsfile lo ichina stages ni base chesukuni 
+
+APPLY
+==============
+VPC
+------
+apply --> it should create VPC, and trigger SG ( here SG is dependent on vpc ) 
+
+SG
+------
+apply --> it should create SG and trigger parellely ( below are the parallel stages builds )
+	bastion
+	rds
+	eks
+	acm
+	ecr
+	cdn
+alb 			( this is another stage build because dependency required ) 
+
+DESTROY
+============
+ECR
+ when destroy --> it can trigger all parallel destroys
+	alb
+	cdn
+	ecr
+	acm
+	eks
+	rds
+	bastion  ( parallel ga destroy chesi )
+sequence  ( sequence ga below destroy avvali ) 
+	sg
+	vpc
+	
+
+--> so parallel and sequential and the other jobs ni trigger cheyadam those are called downstream jobs, so ipudu SG anedhi VPC ki em avutundhi see below
+
+SG is ____ for VPC. downstream job for VPC  ( ikkada VPC create ayyaka maatramey SG create avutundhi )
+VPC is upstream for SG 
+
+--> use the repo to create infra through jekins     
+
+	https://github.com/daws-81s/expense-infra  ( wait: true ichaamantey oka vela SG fail ayindhantey VPC kooda fail avutundhi endhukantey VPC anedhi SG success ayinanata varaku wait chestuney vuntundhi kaabatti ) ee repo no download chesi naa github  ( expense-infra-cicd ) loki push cheyaali so that today changes reflect avutaayi yesterday changes poorti ga levu today maatramey total infa vundhi
+	
+	ikkada repo lo ni jenkins file lo choostey 10-sg lo apply chesinapudu parallel ga anni build jobs run ayyi anni resources create avutaayi apply chesinapudun and
+	adhey 80-cdn jenkinsfile lo destroy kottinapudu parallel ga anni build jobs run ayyi anni resources destroy avutaayi
+	['80-cdn', '70-ecr', '60-alb', '50-acm', '40-eks', '30-rds', '20-bastion', '10-sg', '00-vpc']
+	
+	so manaki ee jenkins dwaara ee infra create cheyadam headache anipistey manam commandline dwaara okkokkati terraform apply/destroy chestoo kooda infra create chesukovachu or anni resources ni loop dwaara okate dhaggara petti terraform apply or destroy kooda kottochu dheenni manam terraform sessions lo choosamu 
+	
+	anyways manam oka sarri chooddam jenkins dwaara total infra ni create cheyadam for that create folders like
+	configure AGENT-1 ( in nodes , and give no.of executions : 6 means at a time parallel ga jobs run avutunnayi kaabatti, and see prvious session for creation of agent-1 ) 
+	create EXPENSE --> INFRA --> DEV  ( folders create cheyaali )
+	
+	create pipelines for all resources under DEV folder in jenkins create pipelines for
+	
+			00-vpc, 10-sg, 20-bastion, 40-eks, 50-acm, 60-alb, 70-ecr, 80-cdn
+	
+	goto 00-vpc pipeline --> build now 
+	
+	
+	
+	
+	
+--> so ee mottam infrastructue setup ayipoyina taruvata manma eks setup cheyaali for that	
+
+EKS setup
+------------
+1. aws-loadbalancer-controller (ingress controller )
+
+then we can go for ingress resource or target group binding  ( ee target group binding ki epudu veltaamu antey Listeners rules avanni mundhugaaney manaki create ayipoyuntaayi ingress resource ki epudu veltaamu antey Listeners rules create avvakapotey then we can go for ingress resource ) 
+
+--> so ee mottam py setup anta ayipoyina taruvata we can go for Application CICD anna maata  ( infra setup mottam one time setup and application CICD maatram continuous process manam webhooks configure cheyochu taruvata build, unit test etc chestaamu so ee steps anni pipeline nunchi automatic ga trigger ayipotaayi anna maata ) 
+
+APP CICD
+===========
+Build
+Unit Test
+Scans
+Build Image
+Push Image
+Helm deploy
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+What are the jenkins agents you are using?
+===========================================
+VM are perm agents  ( below are the problems of permananent agents )
+	you need to maintain them
+	We need to maintain multiple agents for multiple projects ( projects like java, node.js, python projects heere manaki different different agent kaavasi vostundhi or annintini teesukuni okatey agent lo pettali, annintini teesukuni okatey VM lo peditey aa VM oka project ki already busy ga vuntundhi pipeline run ayyetapudu, malli inko project ki run cheyalsi vostundhi, oka vela evaru kooda means ea project vaallu kooda  run cheyaledhu apudu aa agent waste ayipotundhi means resources anni waste kaabatti and also multiple agents ayitey maintain cheyaali kaabatti, manam temporary agents teesukuntaam please to see below )
+
+Temp/Ephemeral agents
+	Docker Containers
+	K8 Pods
+	
+	oka eks cluster vuntundhi andhulo 
+	jenkins-agents aney oka --> namespace create chesi 
+	use base image nodejs for nodejs projects (meeku ea prject ki elaanti resources kaavali anedhi manam mundhugaaney chesukovachu kaabatti )
+	use base image Java for java projects
+	
+	apudu jenkins dhaani agent ni dynamic ga eks lo vundey jenkins-agent aney namepsace lo launch chesi ee image ( use base image java ) lo nunchi oka pod ni run chesi aa pod lopala pipeline run avvali and pipeline run ayipoyina taruvata pod automatic ga terminate ayipotundhi so these are ephemeral agents anna maata 
+	
+	so tragger ayina prati saari automatic ga  jenkis-agent aney namespace lo oka pod create avutundhi means okkokka pipeline ki okkokka pod create avutundhi so idhi dynamic ga vuntundhi we no need to maintain them ( VM's lo resources waste avutundhi night time lo evaru run cheyaru kaabatti  but ikkada resources anedhi baaga utilise avutundhi k8 pod ayitey ) 
+	
+	but idhi setup cheyaalantey oka EKS and jenkins nunchi aa EKS ki connection vundaali and jenkins velli andhulo launch cheyaali so ee configuration anta setup cheyaali
+
+ikkada agent permanent kaabatti label AGENT-1 ani istunnamu ippativaraku dhaani choosamu but k8 agent ayitey see below 	
+
+agent{
+            kubernetes {
+                cloud kubernetesConfig.get(springBootMap.get("uat", "") ? "uat" : "prod").cloud
+                label podLabel
+            yaml """
+spec:
+    containers:
+    - name: jnlp
+      image: sivakmr469/jenkins-maven-pcf:7.0.2
+      imagePullPolicy: Always
+      resources:
+        requests:
+            cpu: 0.5
+            memory: 1Gi
+        limits:
+            cpu: 0.5
+            memory: 1.5Gi
+      ttyEnabled: true
+      workingDir: /var/lib/jenkins
+      alwaysPullImage: true
+
+"""
+            }
+        }
+	
+	so pyna jenkinsfile build chestey pod anedhi okati create ayi ee jenkins-agent laaga aa pod work avutundhi and aa pod lopala meerichina pipelines mottam means pipelines lo stages anni run ayi and pipeline ayipoyina taruvata aa pod anedhi automatic ga delete ayipotundhi anna maata 
+	
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+--> so manam next session nunchi application ni deploy cheddamu CICD dwaara  ( infra maatram either jenkins and using commandline through terraform create chesukovachu ) 
+	ikkada infra ki just oka terraform tool maatramey vaadutunnam kaabatti dheenni command line lo cheseyochu ( steps like terraform init, plan, apply ivi maatramey vyntaayi Jenkinsfile lo ) but applications ki vochesariki chaala tools vuntaayi like build, install, docker image, scan etc so applications ki maatram CICD ni khachitam ga use cheyaali 
+
+aws eks update-kubeconfig --region us-east-1 --name expense-dev
+
+configmap, deployment, service, ingress
+
+helm install/upgrade backend .
+
+	helm status
+		if success --> end pipeline
+		if failure --> rollback
+			if success --> end pipeline and RCA for why it is issued
+			if failure --> this is disaster --> app is down
+			
+			
+			
+
+
+--> propogate = true option in jenkins file need to be understand 
+--> we mush watch the session at 1:00:00 to get one real use case for agent as VM and k8 pod raised by student 
+--> rancheur anedhi okati vuntundhi multiple cluster vunnapudu prod lo vaatini manage cheyadaaniki like at a time anni clusters ni upgrade cheyadaaniki anna maata need to understand ( this is k8 admin high level activity ) 

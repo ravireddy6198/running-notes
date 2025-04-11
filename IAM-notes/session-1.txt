@@ -1,0 +1,146 @@
+
+														Session - 01 (  AWS IAM )
+													================================
+													
+
+
+
+
+IAM --> Identity access management
+Authentication --> you should prove you belong to the syatem
+Authorization --> you should prove you have access to that particular resource
+
+--> when some one swiped in company with identity card it internally checks the Authentication and Authorization in the background whether this person is Authenticated and whther this person has access to this area or not 
+
+
+user
+group --> developers, admins etc it represents similar roles 
+permissions --> what a user or group can do
+identity --> user or group = entity
+
+resources(nouns ) --> in aws ec2, s3, rds, route53 etc (services)
+
+Actions --> what we can do on that resource
+
+crud --> create , read, update, delete ( read cannot damage when we run multiple times)
+
+--> create user ramu and add permission to ramu with read only access (filter aws managed-job function )
+
+--> generally read only access given to audits only ( for all resources )
+
+--> instead of giving policies to individuals we have to create a user group and attach some policies to that group and then we have to add user to that group so that user can get policies based on the user groups 
+
+
+identity based policy:
+=========================
+
+policy is a JSON document 
+
+--> aws has service actions means what services had what actions to perform ( refer below link )
+
+https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonec2.html
+
+identity based policy :  if it is attatched to user/group/role then it is called as identity based policy
+
+ramu/auditor --> i should give them access to all ec2 instances in us-east-1 region 
+
+
+policy to create ec2 resource :
+----------------------------------------
+
+resource : * --> all resources 
+action : ec2:* --> can perform any action on all ec2 resources 
+condition -->if only us-east-1 region
+
+creation of policy 
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": "ec2:*",
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "ec2:Region": "us-east-1"
+                }
+            }
+        }
+    ]
+}
+
+--> attch this policy to auditor group (user group ) so that whoever persons under this group can create the instances in us-east-region-1 only
+
+what is identity based policy ?
+---------------------------------
+-->if a policy document is attatched tothe either user/ group/role then it is called as identity based policy, what are the elements inside the policy means we can have version and then statement, effect either action or deny on what resources he can perform what actions he can perform under what conditions
+
+
+
+i shuld give list bucket access to auditor group
+
+and also i should give access for List one bucket to auditor group
+
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": "s3:ListAllMyBuckets",
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::82s-expense-dev"
+        }
+    ]
+}
+
+-->basically this is identity based policy because we added this policy to user/group to control over all the buckets, we have to grant permissions to the user/group/role for listingall buckets and user want to see only one bucket or any other 
+
+
+
+Resource based policy :
+=========================
+--> we have to create this first go to s3 open bucket and goto permissions and edit the buckets 
+
+--> here priciple is either user/group/role
+
+identity based policy vs resource based policy
+------------------------------------------------------
+
+identity based policy is attatched to the identities like users/groups/roles
+resource based policy is attatched to the aws resource and it shall have an extra element that is called principal
+
+
+--> here we have selected one bucket and give policy to that bucket 
+
+{
+    "Version": "2012-10-17",
+    "Id": "Policy1740461789120",
+    "Statement": [
+        {
+            "Sid": "Stmt1740461752628",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::050451406191:user/ramu"
+            },
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::82s-expense-dev"
+        }
+    ]
+}
+
+ListAllMyBuckets -->he can see the buckets
+ListBucket --> then he can see the elements inside bucket
+
+console --> username and password
+API/Command Line --> token based authentication for automations
+
+--> though console user not able to see the all buckets because user has access to one single bucket listing ( here while opening all buckets users not able to see all list buckets but by using aws cli we can use aws s3 ls <bucket name> then user able to see the inside bucket listing in command line

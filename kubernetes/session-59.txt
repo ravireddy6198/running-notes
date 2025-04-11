@@ -1,0 +1,229 @@
+
+																			Session - 59
+																		=====================
+																		
+																		
+																		
+																		
+																		
+																		
+
+
+--> yesterday EKS production grade cluster ni create chestunnam mana own VPC lo  ( https://github.com/DAWS-82S/terraform-aws-eks )
+
+	ok EKS cluster, bastion  and RDS ni through terraform dwaara create chesi connect cheyaali
+	mysql ki oka record create chesi RDS DNS to emani antey mysql.daws82s.online ani ivvali then see nslookup <record-name> then it will show the IP address and now
+	connect to bastion host 
+	aws configure
+	aws eks update kube-config --region us-east-a --name expense-dev ( ani cluster name istey adhi .kube aney folder lo config aney file create avutundhi whenever you authenticate k8 ( like EKS or any k8 ) )
+	kubectl get nodes ( if response not coming allow sg traffic from eks_control_plane accepting traffic from bastion on 443 ( control plane is https) )
+	kubectl get nodes ( now we are able to see the nodes) 
+	so cluster ready ayindhi manam bastion nunchi EKS ki connect ayyamu ok 
+	so EKS anedhi stateless applications kosam kaabatti backend ni configure cheyaali EKS lo, so ikkada backend ni blue-green deployment lo cheddam so useual ga intaku manam chesina strategy enti means deployment lo bydefault strategy enti ? rolling update kadha rolling update is a zero downtime enshukantey pods eppatiki running lo vuntaayi response fail avvadhu even meeru update chestunna kooda application ni, alaagey manaku inko zero downtime strategy vundhi i.e, blue-green deployment, so rolling update lo what is the disadvantage antey 
+																	
+rolling update --> zero downtime
+	4 pods
+	5 pods, 4 old 1 new
+	1 old pod terminate, 2nd new pod creates ( it will take 5-10 sec and at any point of time your application for few sec your app is serving both old and new version means old pods delete avutoo kotta pods create avutunnayi, so aa few second lo konni requestlu vochinapudu aa requests old pods ki velley chance vundhi kaabatti apudu manaku old version responses velley chance vundhi user ki, dheenni developrs handle cheyaali chestaaru kooda, so mostly idhey saripotundhi manaku rolling update, sarey ekkadyna manaki blu-green khachitam ga kaavali anukunnapudu apudu manam elaa cheyaalo chooddam let's discuss about blue-green
+	
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+blue/green
+===============
+--> so general blue-green anedhi only k8 lo ney kaadhu genral concept ekkadyna use chesukovachu 
+
+	so blue/green antey oka blue infrastructure vundhi user request chestaadu blue infra ki this is v1 ok, alaagey green infra ni okati create chestaamu same blue laaga  this is v2 ( changes happend in the applications ) ok ee green infra our internal team test chestundhi changes anni reflect avutunnaya ledha ani and evyna defects vostunnaya ani check chesi once all success green infra is ready ipudu manaki rolling update lo,  (ceratin time lo old and new version hit ayye chance vundhi kaabatti) ikkada manam blueinfra ni oka R53 record chesintaamu kadha end user aa record to hit chestuntaadu blue ki ok, ipudu green anta success lo vundhi then manam aa R53 record ni green infra ki divert chesi blue infra ni standby lo vunchutaamu , so apudu end user requests green infra ki veltaayi ( means new version reflected )laaga anna maata , again after konni days evyna defects raise ayyayi  apudu aa R53 record ni again blue infra ( old version ) ki divert chestaam and green infra ni standby lo vunchi issue ento check chestaamu  i.e., blue-green deployment so,
+	
+	ikkada advantage enti antey 
+
+	app serves single version at any point of time
+	easy rollback due to stand by ( ikkada paatadhi standby lo vundhi kaabatti easy rollback, adhey rolling update standby anedhi emi ledhu so apudu rollback cheyaali antey malli manam oka command ni run cheyaali , so command run cheyadam anedhi production lo anta easy kaadhu prouction touch cheyadam anta easy kaadhu so, prod lo command ni run cheyadaaniki atleast minimum 10-15 minutes ayina padutundhi 
+	
+	so assume green running lo vundhi assume it is successful, malli manam evyna applications changes jarigi deployment ki vellinapudu ipudu green lo vundhi kadha next blue this v3 again same process employess dheenni test chestaaru once success go for deployment for blue ( so paata blue vundhi kadha v1 aa blue infra potundhi means blue v1 infra replaced bu blue v3  antey blue-v1 lo vundey application teesesi, blue v3 (new v3 code )  ni pedtaaru ani meaning anukondi ) again v3 lo evyna defects vochaayi anukondi again R53 ni blue-v3 nunchi green-v2 ( v2 version )  ki ichestaaru ) 
+	
+	so ilaaga veltuney vundhi oka sari blue and oka saari green alaaga new deployment veltoo vuntaayi 
+	
+	what is blue/green deployment ?
+
+	blue/green deployment is a zero downtime strategy
+	for example if blue is running, we will create a new set of infra called green
+	we do some health checks or sanity testing based on project requirement
+	if green infra passed testing, we will switch routing from blue to green
+	now green is running version and blue is standby version
+	after few days, if any major defects found out, we can easily switch over to old version i.e blue
+	this process goes on
+	
+	so manaki k8 lo pods ki connections/routes ichedhi evaru ( means pod to pod communication ) antey service nunchi manaki routes vostaayi so we need to switch the service
+	
+	so applications ni ee blue/green deployment lo practical chooddam ( ippativaraku theoretical ga choosamu ) for that 
+	create k8-blue-green repo first and create backend refer below repo 
+	https://github.com/DAWS-82S/k8-blue-green
+	
+	so manam test cheddam andhukosam kindha cheppina vidham ga versions ni ala anukundhaam
+	
+1.0.0 ni--> blue anukundhaam
+2.0.0   --> green anukundhaam
+3.0.0   --> blue anukundhaam
+
+	so images ni ready chesukuni first docker ki push chesukundhaam ( ikkada application lo changes kosam manali expense-docker repo vundhi kadha andhulo backend index.js lo /health vundhi kadha  andhulo res.json api lo blue-1.0.0 ani first time taruvata green ki vellinapudu aa index.js file lo res.json api loney green-2.0.0 ani alaaga changes chestoo docker images ni create chesi push cheddam apudu manaku cure reuest or browser lo aa response choosi deployment success ayindho ledho chooddamu ok )
+	
+	take expense-docker repo for build and push the images to dockerhub
+	git pull expense-docker url
+	docker build -t ravi6198/backend:1.0.0 .
+	for pushing the images to docker we must need to login to dockerhub for that
+	docker login -u ravi6198 
+	docker push ravi6198/backend:1.0.0
+	first 1.0.0 image build chesi push chesaamu alaagey green-2.0.0 and blue-3.0.0 ki kooda pyna steps follow auto ee rendu changes ni kooda image create chesi push cheyaali so that all images are ready for deployment
+
+	create backend take this repo for backend blue-green deployment 
+	https://github.com/DAWS-82S/k8-blue-green/tree/main/backend
+	so first configmap important 
+	RDS is created,but we need to create schema, tables, user, etc... ( idhi one time activity anna maata, intaku mundhu antey manam ee schema and tables annintini backend nunchi chesaamu kaani but backend nunchi root not allowed , so DB ni evarytey (DB team ) handle chestunnaro vaallu create chetaaru ee schema, tables and users annintini ok note this point ) 
+	so bastion nunchi mysql ki connection vundhi kaabatti oka saari test cheddamu
+	mysql -h mysql-dev.daws82s.online -u root -pExpenseApp@1 ( we must install mysql on bastion and R53 record available for RDS (mysql ) )
+	sudo dnf install mysql -y ( idhi user_data script lo chestey bastion host create chesinapudu automati ga install ayi vostundhi ) 
+	mysql -h mysql-dev.daws82s.online -u root -pExpenseApp@1  ( we can see the connection to mysql )
+	
+	so for now bastion nunchi schema and tables, user create chestunna for practice but in general DB team vallu handle chestaaru dheenni manaki avasaram ledhu this is one time activity, for that take backend.sql from backend code 
+	
+	create vim backend.sql in bastion paste the content from above means queries ni store chsaam ee file lo, after that 
+	mysql -h mysql-dev.daws82s.online -u root -pExpenseApp@1 < backend.sql ( all queries are executed from backend.sql file ) 
+	check show tables; use transactions; 
+	so root user kaakunda expense user to login avutundho ledho check cheddamu
+	mysql -h mysql-dev.daws82s.online -u expense -pExpenseApp@1
+	keep backend.sql file ni ee repo https://github.com/DAWS-82S/k8-blue-green/blob/main/backend/backend.sql  lo ney vunchutunna 
+	so next blue deployment vochinapudu blue-deployment.yaml lo version: blue (ikkada labels are selectors kaabatti ) mottam lables ni blue lo istaamu  ok 
+	next service, create main-service.yaml
+	https://github.com/DAWS-82S/k8-blue-green/blob/main/backend/main-service.yaml
+	see from 27:00 min onwards backend deployment starts like kubectl apply laantivi ( see the video 27:00 - 37:00 min ) 
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+--> meeru recent ga mee project lo face chesina problem enti adhi simple problem ayunaali dhaanni meeru elaa solve chesaaru ani ani adinapudu ? 
+
+	DNS works on port number 53. generally EKS DNS resoultion happens on udp 53.
+	ikkada nslookup mysql-dev.daws82s.online worker node lo vostundhi ( node loki login ayi choosinapudu ) but pod lo raavatledhu adhi elaano telusukovalantey mana pods anevi rootless kaabatti dhaanni debug cheyalantey chaala kastam officially impossible manam dhaaniloki login ayina kooda manaki akkada em access raadhu normal access vostundhi manam kottaga em commands install cheyalemu and unnecessary commands andhulo vundavu so general ga manam em chestaamu antey ikkada oka debug pod anedhi ee backend repo raasukuntaam like etc kosam, so ee debug pod lo meeku kaavasina commands ni install cheyandi see the repo https://github.com/DAWS-82S/k8-blue-green/blob/main/debug/Dockerfile   ( sleep 10000  ivvali debug run avvadanniki means pod lo ee debug container 10000 sec varaku continue ga run avutuntundhi ) 
+	so dheenni kooda build chesi dockerhub ki push chesukundhaam (debug:1.0.0)
+	debug image ready ayindhi kaabatti debug pod okati raasukundhaam for that refer below repo 
+	https://github.com/DAWS-82S/k8-blue-green/blob/main/debug/manifest.yaml
+	ka apply ( ikkada manaki same expense name space loki oka debug pod vostundhi ) 
+	so ikkada debug pod antey rendu okateynamespace lo kadha means mana backend pod and debug pod okey namespace lo kadha ani
+	so now endhuku pod lo nslookup mysql-dev.daws82s.online anedhi work avvatledho ipudu choostaamu 
+	shell access, manam debug pod loki connect avdhaam using k9s give ( okatey name space kaabatti bastion k9s lo ee pod choopistundhi andholiki login avvali )
+	nslookup mysql-dev.daws82s.online
+	telent mysql-dev.daws82s.online
+	telent mysql-dev.daws82s.online 3306
+	mysql -h mysql-dev.daws82s.online -u expense -pExpenseApp@1
+
+	ikkada annintilo choostey reposnse raavatledhu ikkada ravatledhu antey backend lo kooda DNS problem vundhi ani, means DNS resolution jaragatledhani meaning so endhuku ala avutundhantey because of TCP vs UDP   
+	
+TCP vs UDP
+===========
+--> generally internet works on Transfer control protocol and 
+	User datagram protocol kooda internet protocol ea  ( protocol antey 2 computer elaa connect avutunnayi okadhaanikokati adhi within the n/w or ouside the n/w ) 
+	
+	so TCP antey enti antey 
+	COMP-1 --> COMP-2 ki data pampistuntundhi, data pampiyadamantey voorikey ala pampincheyadhu oka session establish chestundhi anna maata 
+
+	ikkada SYN aney msg ni comp1  --> SYN mesaage receive ayindhi comp2 ki, so apudu comp2 oka Acknowledge ni pampistundhi comp1 ki
+	COMP-1    <-- SYN-ACK
+	ACK RECEIVED --> COMP-2 ( Acknowledge comp1 ki vochina taruvata apudu comp1 kooda Acknowledge received ani comp2 ki pampistundhi  ) 
+	so ipudenti meaning connection establish ayindhi ani meaning so apudu 
+
+	data transfer from COMP-1 to COMP-2 ( meeru edyna website browse chesina kooda adhanta multiple packets laaga veltundhi akkada prati packet receive ki acknowledgement jarugutuntaayi b/n 2 computers ) 
+	
+	DATA SENT (comp1 )--> DATA RECEIVED ( comp2 )
+	DATA RECEIVED ACK	<--
+	
+	so ikkada oka vela DATA RECEIVED ACK pampinchakapotey comp1 ki apudu comp1 malli data ni pampistundhi comp2 ki so ikkada data loss anedhi jaragakunda ee TCP anedhi oka reliable protocol anna maata 
+
+	this is Reliable protocol, no data loss
+	
+	so TCP ni ala develop chesaaru 2 computers HTTP/HTTPS kaani ivanni TCP subsets , so ila oka session establish avutundhi data transfer anedhu jarugutoo vuntundhi pampinchina prati packet ni malli evrytey sender vunnaro vaallu check chesukuntoo vuntaaru receive ayindha ledha ani okavela receive kaaledu antey adhi ekkado madyalo loss ayindhani comp2 malli data ni pampistuntundhi ok
+
+UDP
+==========
+--> ikkada session alaantidhi emi vundadhu just pampinchadam and forget means fire and forget
+
+COMP-1 --> COMP-2 ( ikkada comp2 receive chesukunnadha ledha anedhi comp1 ki sambandham ledhu  comp1 pampinchesi vodilestundhi )
+
+--> so TCP and UDP lo edhi spped vuntundhi antey UDP is speed because no session ack overhead, no data ack, etc.
+	edhi reliable antey TCP is reliable, so nenu oka pedda data ni deni lo pampinchochu antey TCP loney pampinchdam better oka pedd file ni and
+	UDP deniki use avutundhantey DNS resoultion ki use avutundhi
+	manaki EKS vundhi, ikkada EKS anta data speed raavali TCP anedhi konchem padutundhi fraction of seconds ayina kooda , so EKS vallu UDP lo implement chesaaru DNS resolution ni 
+	DNS request size (maybe 50 0r 100 bytes )  is maximum 512 bytes ( it is not even KB ) so adhi DNS chinnadhi kaabatti UDP lo pampistey DNS fast ga resolution avutundhi kaabatti EKS UDP lo port no 53 pyna DNS resolution jarigindhi 
+	DNS --> EKS UDP 53
+	so manaki DNS antey enti internal DNS kadha antey server to server madyalo UDP port enable chesundaali adhi EKS controlplane ki ayina UDP port no 53 pyna enable cheyaali
+	oka vela idhi reliable kaadhu kaabati fail ayindhanukondi manaki EKS lo retry mechanism vundhi but mostly 99.9 % fail avvadhu 
+	
+	DNS retry mechanism gurinchi cheppali so ilaaga interviewr ki cheppali 
+	
+	so 10-sg lo sg.tf lo 95th line TCP ki badulu -1 ani istey we can enable all traffic chesinatlu ( do terraform apply again for debug container ) 
+	116 line to see ikkada malli apply chesi choostey below
+	mysql -h mysql-dev.daws82s.online -u expense -pExpenseApp@1 ( now connected to mysql, try all commands as well mentioned before 116 line  )
+	ikkada debug pod ni teesukuni mottam problem ni debug chesi successful ga DNS problem ni solve chesaamu 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	now backend pod ni delete chestey malli create avutundhi from bastion host using k9s
+	
+	so ee pod lo manam emi cheyalemu idhi root less kaabatti nslookup, telent, mysql emi vundadhu commands ok ( manam debug pod lo anni install chesi choosaamu but ikkada avevi commands ee pod lo vundavu kaabatti prrof kosam work avutundhaa ledha ani debug pod dwaara choosaamu alaagey oka error ni kooda resolve chesaamu like place -1 instead of TCP ok )
+	
+	so mottaniki backend blue is running  ( means backend blue pod run avutu vundhi ) so service kooda blue lo ney vundaali 
+	so backend pod  ni describe chestey pod IP address vochindhi 11.191 ( this is our pod endpoint antey enti mana service velli pod ki attach ayindhi ani meaning, )
+	kaavalantey we can check from debug pod wheteher backend running or not and confirm blue-deployment success or not  
+	curl http://backend:8080/health ( here we can see blue version 1.0.0 running, manam backend pod lo dheenni choodalemu endhukantey akkada ee curl command work avvadhu, so blue-deployment successfully completed   ) 
+	
+	so ipudu next version ki veltunnam so green:2.0.0 means green deployment for that 
+
+	create green-deployment.yaml file ( it is also just like a blue-deployment.yaml file but new changes are existed ) 
+	https://github.com/DAWS-82S/k8-blue-green/blob/main/backend/green-deployment.yaml   ( just change the names and labels existed blue in blue.yaml file to green )
+	
+	ka apply ( so here green set of pods created see using k9s ) 
+	so greenset of pods run avutunnayi ipudem cheyaali antey route change cheyaali but antakantey mundhu ee green deployment work avutundha ledha anedhi test cheyaali for that
+	
+	oka service kaavali, but manam main-service to check cheyalemu endhukanty main-service denni target chestundhantey blue ni target chestundhi dhaaniki productin traffic ( real internet traffic from intenet ) vostundhi but main-service anedhi manam check cheyalemu kaabatti k8 lo inko service vesukovaali anna maata ( means inkoka preview service vesukundhaam )
+	
+	create preview-service.yaml file 
+	https://github.com/DAWS-82S/k8-blue-green/blob/main/backend/preview-service.yaml
+	
+	so ee preview service denni target cheyaali antey green ni target cheyaali because blue is still running in production for the end user ok ikkada green ni upchesaamu tappa routing cheyaledhu 
+	ka apply
+	so ipudu manam em cheyalantey preview service dwaara green deployment ni test cheyaali 
+	k9s dwaara pod ni choostey blue - 11.191  and green - 12.167 Ip addresslu vunnayi so ipudu preview service vochesi 12.167 ni target cheyaali ( already blue 11.191 chestondhi) 
+	using k9s see the services and describe backend-preview service so ikkada choostery 12.167 is the end point antey green pod ni target chestundhanna maata 
+	
+	curl http://backend-preview:8080/health ( dheeni debug pod login chesi choostey manaki green version 2.0.0 running ani choopistundhi antey green deployment test chesaam anta ok no issues ani meaning ) 
+	
+	so ipudu manam routing switch cheyaali, elaa cheyaali antey main-service (here service name :backend ) edit teesukondi (e for edit in k9s) indhulo selector: version : green ivvaali and save it 
+	so now we can see the traffic from green deployment ( do curl http://backend:8080/health from debug pod inside we are able to see the green:2.0.0 running ) 
+	so ee url http://backend-preview:8080/health end customers ki ivvamu idhi only internal purpose 
+	so now green is on live and upon running
+	
+	so ipudem cheyaali blue set of nodes ( again goto blue deployment after application changes made )  for that change the image as ravi6198/backend:3.0.0 in blue-deployment.yaml file 
+	ipudu preview-service lo selector version ni blue pettali
+	again test it using preview-service  ( using curl http://backend-preview:8080/health from debug pod  and test it and it should be blue:3.0.0 choopinchaali ) 
+	but inka manam route ni switch cheyaledhu just pod deployment running and success 
+	now switching the route from green to blue for that 
+	goto backend (main-service) service ( e for edit using k9s)  change the version: blue  
+	now hit curl http://backend:8080/health ( it is showing blue:3.0.0 means 3rd deployment 3.0.0 version deployed successfully ) 
+	
+	now assume blue:3.0.0 having some major defects after deployment then em cheyali antey swithe version blue to green in main-service so that green is live and end users requests sends to green:2.0.0 ok ( means it should goto previous version )
+	
+conditions for blue/green deployment :	
+
+1st deployment --> blue
+main service --> blue
+	no rollback
+
+2nd deployment --> green
+run preview service
+edit main service
+if problem rollback
+
+
+R53 --> web alb
+
+R53 --> another ALB --> another TG
+
+
+
+
+--> what is blue/green deployment?
+--> blue/green deployment vs canary deployment 

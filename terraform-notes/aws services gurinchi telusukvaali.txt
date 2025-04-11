@@ -1,0 +1,7 @@
+
+
+for i in $(ls -dr *); do cd $i; terraform destroy -auto-approve; cd ..; done
+
+Rote 53 
+cloud front
+sso antey enti

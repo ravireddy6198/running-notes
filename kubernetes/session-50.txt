@@ -1,0 +1,213 @@
+
+																Session - 50
+															====================
+															
+															
+															
+															
+															
+		
+
+		
+namespace --> isolated project space
+Pod
+LoadBalancer > NodePort > ClusterIP
+--> If we want to achieve pod to pod communication and LBing in the pods we can use services 
+	there are 3 types of services 
+	clusterIP, Nodeport and LoadBalancer 
+	clusterIP is a default service only works within the kubernetes if we want to expose your application to the outside world we have to use either
+	nodeport or loadBalancer , if we use nodeport kubernetes opens that the specific port on each and every workernode , so oka pod inkoka pod tho connect avvalantey actual ga IPaddress kaavalsi vostundhi IP address anedhi temporary kaabatti kubernetes and container lo we are attaching pods with the services ikkada service anedhi DNS laaga kooda use avutundhi, so we can say 3 uses for service, LBing and then pod to pod communication , DNS 
+	so nodeport vochinapudu request anyserverIp:nodeport --> clusterIP --> pod
+	
+	services pods ni elaa select chesukuntaayi ante, here labels are used as selectors
+	
+	
+--> so ipudu naaku vochey traffic ki oka pod saripodhu, i want to make multiple pods how can i do that ?
+	ikkada nenu nginx pod ni inkosaari run chestey naaku error vostundhi endhukantey same metadata name vundhi kaabatti, so apudu manam pod name change chesi labels alaagey vunchi , i can run it again so that service can connect to this same pod, but ala manual ga cheyadam kantey kooda we have a solution called ReplicaSet
+	
+ReplicaSet:
+----------------
+
+--> manaki oka pod ki maultiple replicas kaavalanukunnapudu we can go for ReplicaSet, pod is subset of ReplicaSet
+
+	create 15-replica-set.yaml in k8-resources folder in local
+	https://github.com/DAWS-82S/k8-resources/blob/main/15-replica-set.yaml
+	ka 15-replica-set.yaml
+	kp
+	ikkada manam oka replica ni means pod ni dekete chestey ReplicaSet inko pod ni create chestundhi ( ikkada manam ReplicaSet ki cheppam 3 pods ni continue ga run cheyamani so adhi ala create avutundhi )
+	watch kubectl get pod ( we can see the recreated pod live if we delete the pod  )
+	
+Pod is subset of replicaset
+pod name = replicaset-name-random 5 digits
+
+--> so ipudu manam applications ( delvelopers changes )lo changes jarigaayi so manam application version change cheyaali we can see manam nginx new version 
+	image teesukuni again
+	ka 15-replica-set.yaml
+	kp   ( we can see still old pods are running without new version )
+	here we can observe ReplicaSet not changed which means ReplicaSet anedhi version or image change chesinanata maatrana adhi pods ni create cheyadhu, ReplicaSet responsibility is create the desired pods creation only , so deployment antey enti
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+	
+deployment
+============
+	when there are changes in application, we need to release new version
+	delete old application
+	download new application
+	run the application
+	
+--> so pyvanni automatic ga perform avvadaaniki manaki kubernetes , oka deployment aney resource ichindhi
+	so ee deployment aney resource deniki ante meeru epudyna mee applicatin releases lo part ga application version gaani chnages chesinapudu ee deployment resource ni run chestey , ee deployment ea old pods ni delete chesi , kotta pods ni update chestundhi means rolling update slow ga, we can see that
+
+	kubectl delete -f 15-replica-set.yaml
+	create 16-deployment.yaml in k8-resources folder in local  
+	https://github.com/DAWS-82S/k8-resources/blob/main/16-deployment.yaml     ( we have to give up to 28 lines ) 
+	so manam ReplicaSet createchestey pod ni create chesinattey , Pod is subset of replicaset, adhey manam Deployment create chestey ReplicaSet create chesinattu and allagey pod ni create chesinattu anna maata ( pod lopala container antey pod ni create chestey container ni create chesinattu )
+	so interciew lo just pod ni raayamani adagaru deployment raayamani adugutaaru alaagey manam projects pod ni direct ga use cheyamu deployment ni maatramey use chestaamu
+	ka 16-deployment.yaml
+	kubectl get deployment
+	kubectl get rs ( ReplicaSet )
+	replicaset is subset of deployment kaabatti deployment resource ea ReplicaSet ni create chestundhi with deploymentname-randomdigits , 
+	kubectl get pods
+	so ipudu ReplicaSet-random-digits i.e, pod, so manam projects lo pod ni direct ga raayamu endhukantey epudyna update cheyalsinapudu mottam manual ga cheyalis vosundhi pod ayitey, adhey deployment resource anukondi automatic ga meeru just apply koditey anta adhey choosukuntundhi
+
+	so ipudu developers kotta changes chesaaru vallu manaki cheptaaru kotta deployment chesi new version ni release cheyamani apudu manam ikkada nginx image ni again change chesi latest teesukuni
+	
+	create one Dockerfile in DEPLOYMENT folder inside dockerfiles repo 
+	https://github.com/DAWS-82S/dockerfiles/blob/main/DEPLOYMENT/Dockerfile
+	for custom images we have to do
+	push to github, clone repo in workstation,        docker build -t ravi6198/deployment:1.0 .
+	docker login -u ravi6198,  docker push ravi6198/deployment:1.0
+	so ipudu image anedhi dockerhub ki vellindhi, ikkada ipudu manam ee image ni elaa run cheyaali ane dhaaniki oka manifest file ni raayali for that we should edit the image in 16-deployment.yaml file as ravi6198/deployment:1.0 and alaagey what you do to expose your application running in kubernetes to the internet , so dheenikosam manaki service lo either nodeport or LoadBalancer use cheyaali , we can use LoadBalancer, ikkada LB use chestey automatic ga NodePort kooda create avutundhi 
+	
+	we have to add the lines from 29 to last inside that 16-deployment.yaml file, pod lo labels istaamu and service selectors use chesi select chestaamu
+	kubectl delete deployment nginx
+	ka 16-deployment.yaml
+	we have to see the live pods creation running ( watch kubectl get pod ) ( some times we are getting error ImagePullError  because of wrong image chosen )
+	manam kubectl apply chesinapudu ee pod anedhi edhoka node ki veltundhi and aa node dockerhub ki velli pull chestundhi 
+	we have to see the LB setup yester we have seen right ,
+	again developers changed their changes in https://github.com/DAWS-82S/dockerfiles/blob/main/DEPLOYMENT/index.html 	again 
+	docker build -t ravi6198/deployment:2.0 .     and    docker push ravi6198/deployment:2.0  ( here we can see one layer pushed, now image is ready  we need to release the new version for that  )
+	we just edit the images as ravi6198/deployment:2.0 inside 16-deployment.yaml file
+	ka 16-deployment.yaml ( we can see the live pod creation in another terminal okati kottadhi create avutooo paatadhi delete avutuntundhi, idhey VM's lo changes cheyalantey ilaaga chaala cheyalsi vuntundhi but container lo choostey chaala simple ga vundhi  )
+	check in browser using LB DNS (we can see the response of changed version  )
+	
+--> general ga Deployment, ReplicaSet ni create chestundhi, ReplicaSet pod ni create chestundhi 
+	Deployment --> ReplicaSet --> 3 pods
+	when we go for new version for new release
+	Depolyment --> another ReplicaSet --> create one pod and delete one old pod in old version ( Rolling update ) once 3 pods created and old version 3 pods deleted after that old ReplicaSet also got deleted ( we can see the diagramme in C:\devops-notes\kubernetes\diagrammes\k8.drawio )
+	
+	ipudu ivanni elaa jarigaayi ani choosukovadaaniki konni commands dwaara teluskundhaam for testing of deployment success or not just like history
+	Deployment object maatram eppatiki delete avvadhu dhaani kindha vunna ReplicaSet and pods maatramey delet avutaayi but Deployment tana versions ni save chesukuni pettukuntundhi adhi elaago chooddamu ipudu 
+	
+	kubectl rollout history deployment/nginx ( we can see all the history od Deployment )
+	kubectl rollout history deployment/nginx --revision=2 ( we can see the revision 2 yokka history, we have to check revision 1 again and compare what changes occured )
+	sometimes kotta version success avvadhu apudu manam immediate ga paata version ki roll back chesi paata version ni run chestaam for application running kosam for that
+	kubectl rollout undo deployment/nginx --> roll back to immidiate previous version
+	kp ( we have to see the live pods creation )
+	oka vela naaku specfic version deplyment kaavali anukunnapudu
+	kubectl rollout undo deployment/nginx --to-revision=2
+	kubectl get deployment nginx ( status check cheyadam annintini again one more command is there for status check of rollout)
+	kubectl rollout status deployment nginx  ( we can see the msg as deployment "nginx" successfully rolled out )
+	
+	so ilaa manam deployment chetaamu most cases success avutundhi , epudyna success avvakapote just immidiate ga rolled back chesi then we can do the root cause analysis 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------	
+--> ipudu manam  expense project ni kubernetes resources like Depoyment, service, pod , configMap etc ni use chesi mana kubernetes resources ni create cheddam 
+	for expense project 
+	
+	create k8-expense repo in github and local
+	first create namespace, mysql, backend, frontend
+	we already created images of mysql, backend, frontend. we can use those images for k8-expense project 
+	1. mysql --> manifest.yaml --> we can go for directly deployment resource no need to goto pod or anything ( usually RDS used instead of mysql )
+	kubernetes only for stateless applications kosam maatramey mostly kubernetes lo evaru kooda databases ni create cheyaru
+	
+	https://github.com/DAWS-82S/k8-expense
+	
+	kubectl apply -f 01-namespace.yaml ( namespace created if not expense project created in default namespace )
+	kubectl apply -f manifest.yaml ( cd mysql )
+	kubectl get deployment  ( here we cannot see the expense namespace it is default namespace )
+	kubectl get deployment -n expense ( here we can see the expense namespace loni mysql deployment ni choostaamu )
+	kubectl get pods -n expense ( herer we can see the pods in expense namespace )
+	kubectl exec -it <mysql-pod-name> -n expense -- bash ( here we can goto the mysql pod )
+	mysql u root -pExpenseApp@1 ( we logged in mysql )
+	show database;use transactions; show tables;
+	
+--> ( ikkada expense namespace lo mysql pod run avutondhi, backend pod mysql to elaa connect avutundhi ? so em use chesi connect cheyaali ? for 
+	pod to pod communication kosam service use cheyaali anna maata, apudu mysql pod ni servic ki attach cheyaali , then backend, mysql pod ki direct ga connect avvakunda, backend pod mysql service ki connect ayitey adhey LBing	chestundhi )
+	i should attach service to mysql ( here we can use clusterIP instead of nodeport , LB because it is purely internal communication )
+	
+	https://github.com/DAWS-82S/k8-expense/tree/main/mysql
+	
+	kubectl apply -f manifest.yaml ( cd mysql )
+	it is mandatory to keep namespace as expense otherwise it will create in default namespace 
+	kubectl get svc -n expense ( to check the mysql service in expense namespace ) so manam prati saari -n expense ivvakunda manaki kubens ane command line tool vundhi install)
+	
+	sudo git clone https://github.com/ahmetb/kubectx /opt/kubectx
+	sudo ln -s /opt/kubectx/kubectx /usr/local/bin/kubectx
+	sudo ln -s /opt/kubectx/kubens /usr/local/bin/kubens
+	
+	kubens expense ( here bydefault namespace anedhi expense ani set ayipotundhi )
+	kubectl get pods ( automatic ga pods anevi expense nunchi vostaayi anna maata )
+	kubectl get svc ( automatic ga service anedhi expense nunchi vostaayi anna maata )
+	
+	here mysql setup completed and mysql service is also attached to mysql pod now
+	
+--> create backend ( so backend kooda Deployment resource ney use chestaam, backend targetport and port both are 8080, and here we used clusterIp bacause public ki exposed no )
+	https://github.com/DAWS-82S/k8-expense/tree/main/backend
+	
+	kubectl apply -f manifest.yaml ( cd backend )
+	kubectl get pods ( backend running here we can confirm expense backend docker file lo DB_host="mysql" so that backend connected to mysql through service  )
+	kubectl logs backend-pod-name ( here we can see the logs backend is App started on port msg )
+	
+--> create frontend ( here target port and service port as 80, service type is LoadBalancer, for backend and mysql ClusterIp bydefault taken if not given service type)
+	https://github.com/DAWS-82S/k8-expense/tree/main/frontend
+	
+	kubectl apply -f manifest.yaml ( cd frontend )
+	kubectl get pods ( here we can see all pods running  )
+	0-1024 are system ports ( here we ran the frontend container with non-root user, so ee ports system reserved ports means root access required  , so ikkada apudu manam frontend port ni change chesukovali ledha root previlise tho container ni run cheyaali )
+	here we can change the port in nginx.conf file as 8080 for frontend in Dockerfile
+	again rebuild the docker image:1.1.0,  (expense-docker repo ), docker push ravi6198/frontend:1.1.0
+	change the image in frontend in k8-expense ( target port as 8080 )
+	
+	kubectl apply -f manifest.yaml
+	kubectl get svc 
+	kubectl get pods ( still we ccan see CrashLoopBackOff for fronend pod )
+	kubectl logs fronend-pod-name 
+	kubectl rollout history deployment 
+	kubectl rollout history deployment frontend --revision=2 ( here we can see the history of deployment in this revision in that image is frontend:1.1.0 )
+	in forntend docker container default.conf ni kooda consider chestondhi ikkada port 80 vndhi kaabatti so we can delete default.conf in frontend Dockerfile
+	rm -rf /etc/nginx/conf.d/default.conf
+	rebuild the image with 1.2.0, docker push ravi6198/frontend:1.2.0
+	change the image in frontend in k8-expense as 1.2.0
+	
+	kubectl apply -f manifest.yaml ( cd frontend )
+	kubectl get pods ( now frontend pod is running )
+	kubectl get svc ( so kubernetes anedhi allow cheyatledhu non root container lo vaati  istamochinatlu avi system ports ni open cheyadaaniki kubernetes allow cheyatledhu )
+	take LB DNS of frontend and access the expense app in browser 
+	
+	create Route53 record as ( create record , define simple record as value/Route traffic to : alias to application and Classic LB, us-east-1, select LB DNS of expense frontend ) daws82s.online 
+	
+Note :
+-------
+--> system ports non root containers kubernetes environment lo open cheyalevu but any how adhi pod varakey but service anedhi mana istam ( service port is still on 80 )
+	
+	
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--> CrashLoopBackOff error, ImagePullBackOff errors ?

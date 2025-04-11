@@ -1,0 +1,173 @@
+
+																			Session - 65
+																		========================
+																		
+																		
+													
+													
+													
+
+
+--> oka CICD-tools repo mana terraform dwaara default VPC lo 2 ec2 instances ni default VPC lo teesukuni alaagey root volume ni increase chestunnam warnig vostundhi kadha 
+	master lo manam choosaamu, alaagey agent lo some softwares install chestaamu refer "jenkins-agents.sh" file, alaagey records ni kooda setup chestaamu jenkins agents lo private IP use chetaamu please see below repo to understand each and every file 
+
+	https://github.com/daws-81s/cicd-tools/tree/7b355cddeafc192a10a6bf5cb7a6a948ceebd537
+	
+	jenkins master ni manam rote53 record to create chesaamu kadha so manam aa record name use chesi jenkins master ni browser lo open chesi configure chestaamu ( above repo lo already record created we just use that record )  
+	
+	http://jenkins.hitaws82s.fun:8080/ ( use this in browser ) 
+	
+	http://jenkins.hitaws82s.fun:8080/
+	
+	Plugins:  in master lo configure cheyaali 
+
+		Pipeline stage view
+		Pipeline Utility Steps
+		aws credentials
+		aws steps  ( this step is mandatory to install this for aws integrates with jenkins by taking some methods like withAWS(..)) 
+		Ansi colour ( coloursr enable during build process)
+		Rebuilder ( idhi manam terraform destroy kotti vunte mundhu build lo manam apudu malli adhey build ki velli ACTION lo apply kotti rebuid cheyochu ) 
+		whenever plugins installed Jenkins server needs to be restarted 
+
+--> domain configure cheyakapote Ip address maarutunna prati saari meeru oka vela server ni stop chesi start chesina prati saari Ip address lu maarutundhi kadha apudu jenkins 
+	chaala slow avutundhi domain configure cheyakapote 
+	
+--> once jenkins master configured create new node for AGENT-1  ( follow the steps to create & adding a new node ( agent ) give host as DNS name instead of IP address
+	open AGENT-1 --> log --> see the status of connecting the agent to master or not 
+	
+application --> CICD mandatory ( regular changes vuntaayi and multiple steps like build, scan, install etc vuntaayi kaabatti  ) 
+infra --> CICD not mandatory for now ( infra ki py ea steps vundavu infra is one time activity, infra changes rare ga vuntaayi so CICD not mandatory )
+
+	But for now manam infra ki kooda CICD chooddamu oka saari for that 
+	create new Item in dashboard --> name : EXPENSE ( select folder not pipeline ) --> ok --> apply & save 
+	so Under EXPENSE create new item --> name : INFRA ( select folder not pipeline ) --> ok --> apply & save 
+	so Under INFRA create DEV as well
+	so ipudu manam development ki sambandhinchina infrastructure ee DEV folder dwaara CICD lo cheddamu
+	so different diffrent environments ki different different repositories laaga anukunnam kaabatti so mana infra ni dev and prod ki elaa cheyaalo chooddam CICD dwaara ika mana deployments VM's kaadhu, complete ga EKS lo kaabati create repos for dev and prod refer below repos
+	
+	https://github.com/daws-81s/expense-infra
+	
+	https://github.com/daws-81s/expense-infra/tree/6b0f099b72943b73bf6f21c4f029b5495621d1ae   ( use this repo for this session ) 
+	
+	https://github.com/ravireddy6198/terraform-aws-vpc ( use this repo for terraform-vpc-module )
+	
+	so above repo dwaara terraform to manam infra ni CICD lo chestunnam, usually companies lo DEV seperate and PROD seperate account vuntaayi but ikkada manam code lo ney manage chestunnam and allagey VPC, SG ki kooda seperate repos vuntaayi endhukantey seperate teams vuntaayi kaabatti 
+	infra apply or destroy antey 2 options anna maata but manaki projects lo destroy chesey option vundadhu ikkada mana practice kosam
+	terraform dwaara create workspace ni prati saari delete cheyaali lekapote provider.tf dwaara build chesina prati saari oka .terraform file create avutundhi adhi huge memory so dhaani kosam manam always lo deleteDir() ivvali so that build chesina prati saari workspace delete ayipotundhi and state file remote dwaara track avutu vuntundhi 
+	so manam terraform init -reconfigure cheyaali manaku elaagu workspace delete ayipotundhi kaabatti 
+	so manam terraform dwaara infra create cheyalantey aws configure cheyaali kaabatti manam jenkins aa steps ivvakunda jenkins lo plugins use cheddam for that install plugins like
+		aws credentials  ( credentials ni stroe cheyadaaniki jenkins lo )
+		aws steps ( idhi jenkins to interact avvadaaniki ee plugin use avutundhi ) 
+		
+-->	first jenkins lo credentials elaa store cheyaalantey manage jenkins --> credentials --> system (first ) --> Global Credentials --> add credentials --> kind : aws 
+	credentials , ID : name any thing ( aws-creds ), Descri : aws-creds ( anything ), give Access Key and Secret Key --> create --> we can see the credentials in Global Credentials section 
+	
+	so credentials create ayyayi for now manam ee credentials ni use cheyaali, dhaani kosam jenkins pipeline ee credentials ni refer cheyaali see the Jenkins file mentiond repo  (   https://github.com/daws-81s/expense-infra/blob/main/00-vpc/Jenkinsfile   ) 
+	
+	so first manam 00-vpc ni jenkins dwaara terraform use chesi ( agents lo terraform download ayundaali ) VPC ni create cheyaali for that 
+	create one pipeline (under DEV) new Item: 00-vpc --> script path last one : 00-vpc/Jenkinsfile --> apply & save --> build now 
+	first time build chesinapudu parameters raavu so second build lo vostaayi like ( build with parameters and ACTION : apply) 
+	
+	https://github.com/daws-81s/expense-infra/blob/main/00-vpc/Jenkinsfile
+	
+	so py repo loki velli okko stage ni observe chestey terraform init, plan, apply/destroy dwaara infra (00-vpc) anedhi create avutundhi aws lo jenkins pipeline dwaara 
+	
+	now create one more pipeline under dev folder in jenkins ( 10-sg ) refer below repo for jenkins file  ( use script path last one : 10-sg/Jenkinsfile )
+	
+	https://github.com/daws-81s/expense-infra/blob/main/10-sg/Jenkinsfile
+	
+	upstream (00-vpc) and downstream (10-sg)  in jenkins means oka project success ayyaka inko project ni trigger cheyadam ( means 00-vpc complete ayyaka 10-sg ni create cheyadam pipeline job lo )
+	
+	Rebuilder plugin ( idhi manam terraform destroy kotti vunte mundhu build lo manam apudu malli adhey build ki velli ACTION lo apply kotti rebuid cheyochu 00-VPC lo ni last build lo ) idhi 00-vpc build with apply kottinapudu malli manam adhey build options lo rebuild with destroy kotti infra ni destroy cheyochu 
+	
+	wait = true konni jobs wait cheyalsina avasaram vochinapudu ( need to research ) 
+	
+	goto 00-vpc pipeline --> build with parameters ( ikkada console output or build choostey 00-vpc create ayyaka 10-sg trigger avutundhi (build lo input adiginapudu yes cheyali remember that )  )
+	
+	so manam 00-vpc nunchi trigger chesinapudu once VPC create ayyaka 10-sg trigger avutundhi see jenkins file ( 00-vpc) and adhey manam 10-sg destroy chesinapudu 00-VPC trigger ayi destroy ayye vidham ga manam Jenkins file ( 10-sg ) lo ichaamu ( upward and downward ) but ikkada again 00-vpc trigger ayinapudu malli 10-sg trigger ayye chance vundhi kaabatti akkada kooda when condition raasamu see the jenkinsfile ( 00-vpc ) so aa vidham ga manam 
+	
+	00-vpc ni build with apply   and 10-sg ni build with destroy check cheyaali infra elaa work avutundho elaa create and destroy avutundho choodali so 
+	00-vpc build with apply
+	10-sg build with destroy 
+	
+	but manaki projects lo destroy anedhi vundadhu but any way oka vela requirement vochinapudu cheyaali kaabatti logical ga elaa work avutundho choodali 	
+
+vpc, sg, bastion, rds, eks, acm, alb, cdn, ecr
+
+	so ilaaga manam total infra create cheyaali CICD dwaara ipudu manam
+	10-sg build with apply koditey and manaki elaanti dependencies lenapudu ( like RDS ki bastion dependency kaddu alaaga ) manam parallel ga anni 10-sg lo anni resources ni 10-sg loney trigger cheyaali so
+	
+	10-sg build with apply kottali apudu automatic ga anni ( bastion, rds, eks, acm, alb, cdn, ecr ) trigger avutaay see below repo
+	
+	https://github.com/daws-81s/expense-infra/blob/main/10-sg/Jenkinsfile
+	
+Dependency flow :
+---------------------
+vpc
+sg
+	bastion
+	rds
+	eks
+	acm
+	ecr
+	cdn
+	
+	alb ( last lo run avvocchu ) 
+	
+--> create pipelines for  ( ikkada pipeline create cheseytapudu new item lo 20-bastion ichi kinda last lo copy from opition lo 10-sg ani istey aa configuration anta apply      avutundhi and edyna modifications ni manam kaavalantey chesukuni save chesukovachu )
+	
+	20-bastion
+	30-rds
+	40-eks
+	50-acm
+	60, 70
+	.....
+	80-cdn 
+	
+	see the each and every resource and verify jenkinsfiles and understand how the pipeline triggered 
+	
+	https://github.com/daws-81s/expense-infra
+	
+--> so ee session lo manaki anni git repos ready ga vuntey simple ga jenkis lo oka agent (AGENT-1) ni create chesi and okko dhaaniki okko pipeline create cheyaali antey then manam 00-vpc lo pipeline trigger chestey automatic ga anni create avutaayi parallel ga 10-sg and below 
+	
+	20-bastion
+	30-rds
+	40-eks
+	50-acm
+	60, 70
+	.....
+	80-cdn 
+	
+	
+-->  ssh-keygen -t ed25519 -f ~/.ssh/eks (use this for eks )
+
+resource "aws_key_pair" "eks" {
+  key_name   = "eks"
+  # you can paste the public key directly like this
+  #public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL6ONJth+DzeXbU3oGATxjVmoRjPepdl7sBuPzzQT2Nc sivak@BOOK-I6CR3LQ85Q"
+  public_key = file("~/.ssh/eks.pub")
+  # ~ means windows home directory
+  }
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+--> what is upstream and downstream in jenkins ?
+
+	when there are dependencied b/n multiple jobs in jenkins we can trigger another pipeline, when one pipeline success

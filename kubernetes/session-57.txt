@@ -1,0 +1,244 @@
+
+																				Session - 57
+																			=======================
+																			
+																			
+																			
+																			
+																			
+																			
+																			
+	
+--> OIDC proviser : idhi endhuku antey meeru k8 nunchi external resources ni access cheyaali antey then we should use OIDC provider anna maata  ( refer ingress repo raadme.MD )
+	authentication purpose kosam 
+	
+	IAM policy refer same 
+	service account : kubernetes lo vunde pods meeru run chesinapudu adhi velli LB ni create cheyaali , so you should give permission to your workloads to provision the external services so taruvata 
+	Driver ni add chesaamu Helm use chesi and  install chesaamu helm use chesi 
+	
+	
+--> suresh joined, we need to give him all readaccess to expense namespace, so k8 ki oka username and passwd malli aws ki oka username and passwd create cheyadam ivanni 	
+	cheyakunda manam k8 ni aws IAM to integrate chestaamu 
+	so first expense server create chestunnamu expense project kosam ( create EC2 instance with name expense ) 
+	so ikkada expense project devops engineers oka team laaga and k8 admin oka teamm laaga choosu veldhaam
+	admin : admin kaabatti oka IAM user ni create chestunna and user ki plocies ni em ivvali so atleast EKS ni describe cheyagalagaali (policy : ExpenseEKSDescribe)
+			means mana expense cluster ni atleast atanu describe chesteney atanu connect avvagaladu ( user suresh creation completed taruvata )
+			
+			so aws ki EKS ki and aws IAM ki oka bridge vochesi aws-auth aney configmap anna maata  ( see aws-auth.yaml ) so, ikkada map user anedhi petti aa user yokka URN and atani role istunnam manam, so nenu first role create cheyaali ( refer role.yaml) so role antey atanki ea resources ki ataniki access vundhi and aa resources pyna atanu elaanti actions perform cheyagaladu anedhi okand also API groups kooda mention cheyaali, alaagy role-binding antey user ni role ni bind cheydam so last time discuss chesaamu kadha manam so now do this for admin activity ( refer k8-RBAC role.yaml file with upto 27 lines for role and rolebinding )
+			https://github.com/DAWS-82S/k8-rbac/blob/main/role.yaml
+			git clone k8-rabcka role.yaml (cd k8-rbac)
+			kubectl get role (role create ayindhi )
+			kubectl get rolebinding ( ROLEBINDING KOODA CREATE AYINDHI ) 
+			now we need to map the user using aws-auth.yaml 
+			ka aws-auth.yaml
+			kubectl get configmap aws-auth -n kube-system -o yaml ( here UID there i think it is previous session remove this in yaml file if present ) 
+			so ipudu suresh ki manam mottam setup chesaamu suresh user create chesaamu , suresh ki cluster ni describe chesey access ichaamu and then role create chesaam, role-binding create chesaam and aws-ath lo manam map chesaamu so ipudu suresh kiinform chestaam so suresh ane vaadu expense project lo access chestuntaadu kaabatti 
+	
+	user : now user suresh atani server like ikkada expense project server (expense server ) loki login ayi kubectl install first ( refer previous session )
+		   so ipudu itanu first aws configure ichukovaali because manam IAM to integrate chesaamu kaabatti he will take his credentials from AWS IAM console and give it in this server so ichina credentials ni correct ga vunnaya ledha teluskovadaaniki refer below command\
+		   aws sts get-caller-identity ( ichina credentials ea user ki sambandhinchinavi ani ) 
+		   so ipudu EKS configuration kaavali antey then  so idhi em chestundhantey kube configuration denilo vuntundhi antey refer below command 
+		   aws eks update-kubeconfig --region us-east-1 --name expense
+		   ikkada pydhi apply chesinapudu manaki oka folder create avutundhi, so kubectl cluster to interact ayyetapudu configuration file anedhi ekkada vuntundhi antey .kube aney folder lo config aney file create avutundhi indhuloki velli choodochu
+		   kubectl get nodes ( suresh cannot have access ) 
+		   kubectl get pods ( suresh can see the pods but no pods are there in default namespace ) 
+		   kubectl get svc ( suresh can have the access )
+		   
+		   so ipudu suresh ki konchem senior ayuntaadu , so manaki ikkada 2 types of resources vuntaayi okati namespace level and okati cluster level ani manam discuss chesukunnam, so namespace level ki kaavalsina access ni manam role and role-binding to ivvochu ( previous session lo dheenni chseaamu manam ) , adhey cluster level ki kaavalsina access ni cluster role and cluster role binding anna maata for that 
+		   
+		   
+  admin :  admin vochesi kubectl get api resource ( so ikkada choostey namespace level kaanivi vochesi cluster level laaga describe cheyaali anna maata, ee command manaki k8 
+		   admin lo vundey anni access levels ni choopistundhi idhi k8 admin important command  ) 
+		   so ipudu suresh ki nodes ni kubectl get nodes choosukuney access kaavali and alaaney PV anedhi kooda (persistentVolume level ea kadha idhi) access kaavali ani atanu adiginapudu malli admin vochesi ClusterRole and ClusterRoleBinding anedhi create cheyaali 
+		   add 29 -54 lines for cluster role and cluster role binding refer below repo
+		   https://github.com/DAWS-82S/k8-rbac/blob/main/role.yaml
+		   ka role.yaml ( so apply chesinapudu suresh ki ee cluster role access raavali let's see ) 
+		   now suresh turn
+		   
+	user : kubectl get nodes ( suresh can have access the nodes )
+		   kubectl get PV ( suresh can have access the PV ) 
+		   
+--> so this is how we will use, we will control the access levels for users in k8 cluster, so i.e., RBAC now ipudu service account chooddamu 
+		   
+ServiceAccount
+================
+--> manaku system accounts vunnayi linux lo antey non human accounts so ipudu nenu k8 ni run chesetapudu naa credentials ni istunnanu so, naa credentials ni k8 apply cheyaadaaiki istunnanu as a suresh laagano, ledha admin laagano but pod run ayyetapudu verey access lu evyna kaavali anukondi for example pod should read the secrets in aws secret manager, so ikkada EKS oka platform and aws anedhi oka platform, lets k8 has its own secrets but mana pod anedhi aws secret manager lo vundey secrets ni techukovaali, so adhi elaa techukuntundhantey pod should run with a proper identity usually that is called service account
+	so manaki IAM users elaagano, linux lo systemusers elaagano  alaagey pod ki service account anedhi non human account, so ee service account ni use chesukuni pod within the k8 resources ni access cheyadam kaani and then outside of k8 like resources ni access cheyadamu idhanta service account chestundhi 
+
+	so manaki pratinamespace ki oka default service account create ayuntundhi 
+	kubectl get sa ( we can see the default sa for default namespace ) 
+	oka vela manam pod ni run chestey  ( goto k8-resources run one pod here 01-namespace.yaml and 02-pod.yaml to tun ) 
+	kubectl get pods -n expense ( pod is running )
+	kubectl describe pod nginx -n expense ( so describe chesinapudu manaki first lo sa anedhi default ani kanipistundhi kadha , so whenever you creates a namespace we will get a defualt sa or every namespace will have default sa ) 
+
+Service Account:  default
+when you create namespace or every namespace will have default sa
+sa is a non human account, it is pod identity with which it can connect with api server and get access to external services
+
+--> so ipudu previous ga manam ingress controller chesinapudu pod anedhi LB create cheyaali, LB lo listners, rules anni cheyaali, pod anedhi elaa chestundhi mana accesslni use chesukoni cheyadhu anna maata ee service account use chesukuni chestundhi anna maata , so sa use chesukuni cheseytapudu ipudu manam oka scenario teesukundham 
+
+pod should access aws secret manager (so mana chosaamu k8 secrets anevi encoded not encrypted evryna decode cheyochu configmaps anedhi but aws secrets manager anedhi 
+encrypted and secure), so ee pods kaani AWS secret manager lo vunde secrets ni refer cheygaligitey a good thing kadha, so pod elaa chestundhantey so we should have sa, user ki elaa ayitey RBAC vundho sa ki kooda role and rolebinding ivvali adhi within the cluster ayitey outside the cluster ayinapudu first thing manam refer below steps
+
+1. make sure oidc provider exist and run																				
+eksctl utils associate-iam-oidc-provider \
+    --region us-east-1 \
+    --cluster expense \
+    --approve
+
+--> so naa pod vochesi secrets ni read cheyaali andhukosam manam oka secret ni create cheddam ( create one secret in aws secrt manager create --> username:admin, password:admin123--> secretname:expense/mysql/secret --> next and next --> store ) so ikkada username password ni secret lo pettamu ipudu pod dheenni access cheyaali, normal user ayitey dhenni access cheyaleru because pod is running with its own identity called sa, so you should give permissions to the sa, so sa ki pemission ivvalantey first manam oka policy ni create cheyaali, so ee policy dwaara enti antey only secret value ni read cheyagaladhu , so specific resource ki maatramey access istunnam antey 
+	
+2. create policy ( aws IAM --> create policy --> for secretmanager, only read (GetSecretValue )-->  so specific resource ki maatramey access istunnam antey region : us-east-1, resource secret and secret resource arn take from aws secret manager --> add arn --> policyName : ExpenseMysqlSecretRead -->create policy )
+
+3. we need to map sa with IAM policy( internal rosources ki ayitey role and rolebinding create cheyaali adhey external resources ki ayitey ee IAM policies ni attach cheyaali )
+
+eksctl create iamserviceaccount \
+--cluster=expense \
+--namespace=expense \
+--name=expense-mysql-secret \
+--attach-policy-arn=arn:aws:iam::315069654700:policy/ExpenseMySQLSecretRead \
+--override-existing-serviceaccounts \
+--region us-east-1 \
+--approve
+
+		so ikkada neneu eksctl command ni use chesi oka service account create chestunanu so aa service account vochesi expense cluster lo expense namespace lo name expense-mysql-secret, so dheeniki nenu ichina policy vochesi ExpenseMySQLSecretRead
+
+this command will create IAM role with policy ExpenseMySQLSecretRead and integrate with EKS SA
+
+	so ipudu kubectl get sa ani koditey 
+	kubectl get sa -n expense ( here we can see the sa )
+	kubectl get sa <sa-name> -n expense -o yaml (ikkada choostey manaki vochina sa kanapadutundhi and alaagey oka role kooda create ayuntundhi and aa sa ee role okadhaanikokati integrate ayyayi anna maata go and check role in aws role refer below ) 
+	
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::315069654700:role/eksctl-expense-addon-iamserviceaccount-expens-Role1-XUPebrTfkrjM
+  creationTimestamp: "2025-03-17T02:22:46Z"
+  labels:
+    app.kubernetes.io/managed-by: eksctl
+  name: expense-mysql-secret
+  namespace: expense
+  resourceVersion: "7864"
+  uid: 8c97086a-9360-4a82-b77f-142fe47ce1c2
+  
+--> so ipudu mana pod defination lo ee sa istey then it can fetch the secrets ( above sa ) now we can see this
+ 
+	create 18-sa.yaml in k8-resources repo (pod velli sa ni fetch cheyaali antey indhulo sa ivvali ) 
+	https://github.com/DAWS-82S/k8-resources/blob/main/18-sa.yaml
+	so ee pod velli sa ni elaa teeesuku raavali anedhaaniki oka concept vundhi manaku adhey InitContainers
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+InitContainers
+==================
+InitContainers are used for setup the requirements for pod, for example backend pod can check whether database connections working fine or not
+InitContainers containers can fetch the secrets for pod before it starts
+
+	create 19-init-container.yaml
+	https://github.com/DAWS-82S/k8-resources/blob/main/19-init-container.yaml
+	ka 19-init-container.yaml
+	kubectl get pods ( containner running )
+	kubectl describe pod <pod-name> ( here we can se the initcontainer runs befor main container running ) 
+	now we have give wrong domain googjdkf.com 
+	and apply again after delete 19-init-container.yamlagain
+	ka 19-init-container.yaml 
+	kubectl get pods or watch kubectl get pods ( ikkada choostey manam main container eppatiki run avvadhu endhukantey manam wrong domain ichaamu kadha, sofirst it will make sure the database is running fine and then it will start the main container ( backend container ) 
+	so ipudu manam time ni control cheyaali anukuntey
+	apply 15 line with wrong domain name  in 19-init-container.yaml
+	ka 19-init-container.yaml  ( delete 19-init-container.yaml before apply  means kubectl delete ) 
+	so intialization loney error vochindhi choodandi adhi run avvadhu assalu ( watch kubectl get pods ichinapudu ) 
+	apply 15 line with correct domain name and sleep 10 sec  in 19-init-container.yaml
+	ka 19-init-container.yaml  ( delete 19-init-container.yaml before apply  means kubectl delete ) 
+	now ikkada choostey after 10 seconds taruvata container running lo vuntundhi choodandi meeru 
+	so this is one use case now we can go for anothe usecase secrets ni fetch chesi elaa manaku container ki cheyaali ani, so endhuku ivanni cheyaali InitContainer antey, oka vela main container ki ivanni ichaaru anukodi like secrets fech cheyadam laantivi apudu main container size perugutundhi kadha, so main container size ni small ga vunchadaaniki InitContainer ee responsibility teesukuntundi so alaaga complete ayipotundhi once complete ayipoyina taruvata dhaanni evaru access cheyaleru 
+	
+
+InitContainers are special containers run before main container runs, we can use them to make sure dependent services are running fine before our main application starts and fetch the secrets from secretmanager for main container. they always run to completion. you can run one or many init containers, they executed in sequence
+
+InitContainers can do heavy lifting for main container so that main container is less in size and limit attack surface of main container by not installing more tools in it..
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+	so back to our service account see 130 line continuation so manam em cheppam initcontainers velli it can fetch the secrets ani cheppamu kadha so secrets ni fetch cheyaali antey manaku aws command line ni use cheyochu refer code properly in repo https://github.com/DAWS-82S/k8-resources/blob/main/18-sa.yaml ( see kind : pod ) 
+		give and run on work station 
+		
+	 aws secretsmanager get-secret-value \
+    --secret-id expense/mysql/creds
+	
+	ilaa istey manaki admin cecrets vostaayi indhulo nunchi manaki kaavalsindhi secret string so beloww command 
+	
+aws secretsmanager get-secret-value \
+    --secret-id expense/mysql/creds --query SecretString --output text
+	
+	here we can see the username and password from aws secret manager , so ipudu kaani idhi meeru main container ki ichaaru antey main container choosukuntundhi dheenilo nunchi username and password elaa teesukovaalo ani,( Note : ee sa ki ee command ni access chesey permission vundhi ) 
+	now we can add 169, 170 line command to the 40 line or see the 40 line in the 18-sa.yaml  to get the secrets to  InitContainer 
+	so sa choosamu and InitContainer choosamu , but InitContainer main container ki elaa credentials ni istundhi antey oka dhaggara store cheyali edhoka location lo store cheystey then main container access that location akkada store cheyaali antey then you should think of volumes 
+	manam volumees choosamu k8 lo those are internal or external volumes? manam choosina EBS and EFS anevi entivi internal or external? so those are external voluemes to k8 right,  
+	
+	volumes --> external volumes
+	internal ga store cheyalantey they have empty directory and hostpath, so empty directory anedhi pod yokka temporary storage so meeku pod ki oka volume ni attach cheyaali antey oka temporary storegae ni then we can use empty directory idhi pod vunnanta sepu idhi vuntundhi manaku , manaki secrets anevi pod vunnanta sepu vuntey saripotundha or pod kill ayipoyina kooda vundaala ? so pod vunnanta sepu secrets vuntey saripotundhi pod kill ayipoyina taruvata avasaram ledhu oka
+	so emptydirectory is a temporary volume to the pod all containers inside the pod can access this soipudu em chestundhi InitContainer stores the secret in emptyDir and completes. then main container can acess this
+
+	internal volumes --> emptyDir and hostPath
+
+	emptyDir --> pod temporary storage, accessible until pod lives. all containers in the pod can access
+	init container stores the secret in emptyDir and completes. then main container can acess this
+	
+	so dheeniki oka chinna syntax vundhi first volume setup cheyaali for that we can add 50-52 kine the repo https://github.com/DAWS-82S/k8-resources/blob/main/18-sa.yaml
+	so heenni init container ki mount cheyaali adhi cheyalantey volumeMounts add 41-43 line to above repo ( last time choosamu volume antey oka disk ni add cheydam laaga add chesina dhanni mount ceyaali )so mount chestey idhi see 40 line it means idhi /secrets/.env lo store chestundhi , so InitContainer run avutundhi runi ayina taruvata aa secrets ni fetch chesi /secrets/.en file lo store chestundhi ala InitContainer ayipotundhi manam malli dheenni volumeMounts ( 47,48,49 lines ) ni main container ki kooda ivvali so apudu main container kooda access cheyagalugutundhi ani meaning now
+	
+	ka 18-sa.yaml
+	kubectl get pods -n expense
+	watch kubectl get pods -n expense ( so it is running ) so running lo ki vochindhi kaabatti
+	kubectl exec -it sa-demo n expense -- bash ( we are inside the pod )
+	cat /secrets/.en ( here we can see the secrets like username and password ) 
+	manam main container ki ichesaam username and passwd main container istam vaatini elaa read chesukuntundhi anedhi 
+	
+	so first service account create cheyaali, sa ki IAM role policy ni map cheyaali, map chesina taruvata InitContainer velli aa secrets ni fetch chesi oka location lo store chestundhi then main container dhanni refer chestundhi ( so manam code dwaara kooda cheyochu ) so finally we can wirte the questions and answersthen we can undestand elaborately 
+
+what is serviceaccount?
+
+serviceaccount is non human user account, sa is the pod identity with which it can access internal resources or external services. we can map sa with cloud provider IAM roles and policies. we can use sa to fetch secrets from secretmanager
+
+--> kubectl exec -it sa-demo n expense -- bash ( nenu nginx container lo vunnanu so i want to check the pods in default namespace for some reason , means oka pod run avutundhi 
+	expense namespace lo aa pod ki oka access kaavalsi vochindhi emani default namespace lo emem pods run avutunnayo choosukovalani for that we need to install kubectl first )
+	apt update 
+	chmod +x kubectl
+	./kubectl get pods -n default ( so ee pods ni list chesey access ledhu , so ee access elaa vostundhi dheeniki, nenu ipudu access ivvali anukuntunnanu for som business reasons or expense name sapce loni pod default namespace loni pod nunchi secrets techukovalani anukuntunnam alaa requirements vuntaayi but ilaa pods access avvalevu direct  so dheeniki elaa access ivvalantey again through sa)
+	kubectl get sa -n expense 
+	kubectl get sa <sa-name> -n expense -0 yaml ( here showing sa we can copy it from here or else ee sa ki manam oka role and role binding ivvali anna maata )
+	so add 1-27 lines in refer repo https://github.com/DAWS-82S/k8-resources/blob/main/18-sa.yaml  ( for role and role binding )
+	so user key kaadhu role and role binding sa ki kooda create cheyochu 
+	22 line not apiGroup it is namespace 
+	so ipudenti ee pod ee sa to run avutundhi , ee sa ki role , role binding add chesaanu, then it should access the pod 
+	ka 18-sa.yaml
+	kubectl exec -it sa-demo n expense -- bash
+	./kubectl get secrets (  )
+	so sa ni use chesi manam pods ki verey resources ni access chesey laaga ivvochu anna maata 
+	
+
+what are initcontainers?
+
+these are special containers run before main container run. we can run one or many init containers, all containers run in sequence. init containers will come to completion, we use them to check the dependencies are running fine before main container starts another example can be fetching the secrets and provide to main container.  they do heavy lifting keeping the main container lightweight and less attack surface by not installing utility tools in main container.
+
+what is emptyDir?
+it is pod temporary storage exist until the pod lives, all containers inside pod can acess emptyDir volumes.
+
+OIDC provider
+sa --> IAM Role --> IAM Policy (external roles)
+sa --> Role and RoleBinding (Internal resources access)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--> how will your pod can access the aws scerests or k8 lo secerts ni elaa manage chestunnaru ani adiginapudu k8 secret ani cheptey again they asked avi encoded kadha not encrypted ani then agai manam cheppalsi vostaadhi kaabatti em cheppalantey first lo alaaney use chesey vallam but recent ga improvements chesaamu aws secret manager ni use chesi k8 secrets ni manage chestunnam ani cheptu elaano pyna cheppina vidham ga steps cheppali 

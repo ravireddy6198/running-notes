@@ -1,0 +1,200 @@
+
+
+																Session - 51
+															===================
+															
+															
+															
+															
+															
+		
+--> do you know our Ec2 instances are permananent?
+		
+Volumes
+============
+everything in k8 is ephemeral. pods kaani nodes kaani master node all are ephemeral. So it is not good to store DB inside K8, so andhukosam k8 volumes aney option ichindhi 
+so general ga companys lo
+Storage administration vuntundhi vella pani entantey --> manage all the disks related to servers, veelu parti roju
+Backup every day
+Restore testing
+N/w to storage ( n/w steup )
+--> general ga companys lo kooda data servers lo vuncharu aa data antatini bayata pedataaru , bayata vunna data ki connections ni establish chestaaru
+--> so disk should be beside th server ( disk anedhi laptop pakkaney vundaali ) 
+--> Google drive is anywhere in internet ( manam internet nunchi file sharing dwaara ekkadinunchi ayina access cheyochu 
+
+--> adhey ipudu manam k8 teesukuntey  eks --> 3 ec2 instances anukuntey data anedhi ec2 instances lo pettadam manchidhi kaadhu andhukosam k8 anedhi manaki volumes ni ichindhi
+
+in aws we have 
+
+EBS -> Elastic block storage ( this is like a hard disk meeru mee servers lo data vunchakunda volumes lo data vunchitey servers  crash ayina kooda data safe ga vuntundhi malli 
+		verey servers ki mount cheyochu)
+EFS -> Elastic file system ( it is like a Google Drive ) 
+
+--> hard disk is fast and Google Drive is slow to access the data 
+
+--> ipudu manam EBS use chesukuni k8 lo data ni volumes lo pedataam ,oka vela entire k8 cluster delete ayina kooda mana data anedhi volumes lo safe ga vuntundhi , malli manam 
+	idhey volums ni verey k8 cluster create chesukunnapudu mount chesukovachu.  EBS annam kaabati manaki aws EBS ki konni conditions vunnayi 
+
+If server is in AZ us-east-1b, EBS also should be here.
+ EBS is less latency. ( to access the data is very fast like HD )
+ EBS is well suitable for DB and OS (os and DB data install or access cheyadaaniki idhi suitable like OS ni kooda EBS lo ney pedataam ) 
+ 
+--> now pods yokka DB ni k8 lo pettalanukuntey below are the steps ( but not recommended it is just for practice ) 
+
+1. node and EBS volume should be in same AZ
+2. drivers installation ( ikkada EKS ki outside of the service EBS ni , eks vochi ebs ni access cheyalantey  manam khachitam ga EBS druvers ni install cheyaali )
+3. EC2 worker nodes should have permission to work with EBS volumes
+
+pyna vunna above steps  we can keep the volumes in EBS 
+
+we have 2 types of provisioning 
+
+static and dynamic provisioning
+=================================
+static antey manamey create cheyaali adhey dynamic ayitey aws ea create chesukuntundhi disk ni apudu manam emi cheyalsina avasaram ledhu , adhanta adhey mount kooda chesukuntundhi means disk create cheyadam mount chesukovadam rendunu 
+
+EBS static
+==========
+we have to create disk manually. vol-06237d8b3183eefc9
+--> ipudu mana worker node ec2 instance us-east-1b lo vunnayi so nenu us-east-1b lo disk ni create chestunna --> size:30gb, us-east-1b --> create volume 
+disk ni first create chesinapudu available ani vuntundhi means disk create ayindhi dheenni mana use cheyaledhu ani meaning 
+drivers installation  ( use below command to install drivers )
+
+	kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.40"
+	kubectl get pods -n kube-system ( we can see the drivers, ikkada drivers kooda pods laaganey k8 will take care of that )
+	
+	system administartion ki sambandhinchina driver kaani pods kaani evyna kooda manaku kube-system aney name space lo vuntaayi 
+	
+--> ipudu manam worker nodes ki permissions ivvali, so ikka meeru workernodes (any worker node  )  lo ki veltey , security lo IAM role pyna click chestey it opens IAM service 
+	herer we can add the permissions ( add attach policies , serch as ebs ,we can see EBSCSIDriverPolicy in that volumes  attach cheyadaaniki detach cheyadaaniki permissions vunnayi in that JSON format , we can attach this 
+	so now our steps are done , so ipudem cheyaali antey ee create volume ni pods ki mount cheyaali anna maata 
+	volumes ni k8 object laaga treat cheyaali endhukantey ( dont consider as a seperate service in the perspect of k8 ) 
+
+everything in k8 is resource/object. if you can treat or manage the volumes from k8 objects any k8 engineer can work on this..( so ikkada k8 objects manage chesanantey adhi ultimate ga meeru volumes manage chesinattey so here we can treat this EBS volumes as objects in k8 
+so there are 3 objects 
+PV --> Persistant volume, represents or wrapper of physical volume
+PVC --> Claiming the volume
+Storage class
+
+kid --> mother --> father --> wallet
+Pod	-->  PVC --> PV -->  volume
+
+--> so ikkada pod , PVC ni adugutundhi naaku konchem volume kaavalani, PVC dhaggara em volume ledhu ikkada PVC anedhi PV ni adugutundhi volume kaavali ani endhukantey PV is representing for the volume, so this is external to k8 , k8 lo leni objects ni manage cheyadam kudaradhu andhukani k8 em chesindhantey innovative ga oka object ni crete chesindhi ( wrapper object ), so vallu take care chestaaru background lo 
+PV is physical thins 
+PVC is requesting the volume from PV
+pod adagaali naaku volume kaavali ani apudu PVC request chestundhi PV ni , so 
+--> so volume ni create chesaamu dhaaniki manam equivalent ga PV ni create cheyaali endhukanter wrapper object kaabatti 
+
+	create folder volumes folder in k8-resources 
+	https://github.com/DAWS-82S/k8-resources/blob/main/volumes/01-ebs-static-pv.yaml
+	
+	mana hard disk ni at atime 2, 3 systems connect cheyalemu, so our EBS volume should come under ReadWrite once 
+	adhey google drive at a time we can connect through mobile , laptop etc , so that will come under ReadWriteMany
+	so mana EBS ReadWriteOnce kindhaki vostundhi because it is a volume attached to an instance kaabatti 
+
+access modes
+============
+ReadWriteOnce, ReadOnlyMany, ReadWriteMany, or ReadWriteOncePod,
+
+--> Lifecycle policy antey mee data oka vela mee pod delete ayitey em avvali anedhi Lifecycle policy annatlu ( serach in kubernetes search )
+	in this we can use Retain use cheyaali endhukantey data vuntundhi , Recycle use chestey data delete ayipotundhi disk vuntundhi, Delete use chestey data potundhi disk potundhi anni potaayi anna maata bydefault it is consideresd as Retain policy 
+	
+	git push
+	kubectl apply -f 01-ebs-static-pv.yaml ( cd volumes )
+	kubectl get pv ( we can see the PV created it represents the physical volume )
+	so ikkada volume create ayindhi means volume created equivalent to PV , but ikkada volume vundhi antey saripodhu aa volume kaavali ani claim cheyaali means we need to mount the volume , so dhaaniki manam vochesi PVC aney object create cheyaali for that
+	
+	https://github.com/DAWS-82S/k8-resources/blob/main/volumes/02-ebs-static.pvc.yaml
+	create 02-ebs-static.pvc.yaml in volumes under k8-resources  ( here  requests:,storage: 20Gi, it is always <= 30 GB, and give 1-13 lines by using above repo )
+	kubectl apply -f 02-ebs-static.pvc.yaml
+	kubectl get pvc ( here we can see the status as Bound antey PVC velli PV ki Bound ayindhi anna maata  )
+	PVC velli PV ki Bound ayina taruvata iks pod em cheyalantey claim cheyaali naaku adhi ( volume ) kaavali ani 
+
+	add from 14th line to 33 lines in 02-ebs-static.pvc.yaml
+	    volumeMounts:
+    - name: persistent-storage
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: persistent-storage
+    persistentVolumeClaim:
+      claimName: ebs-static
+	  
+	  ikkada pod naaku volume kaavali ani persistentVolumeClaim: ni adigindhi , ee claim aa volume istundhi , aa volume ni ichinapudu pod anedhi ee /usr/share/nginx/html location ki mount chesukuntundhanna maata aa volume ni ,antey meaning enti ee /usr/share/nginx/html lo files anni manaku volume nunchi vostaayi , meeru ee /usr/share/nginx/html lo ea files store chesina avi ultimate ga velli manaki volume lo store avutaayi anna maata ( herer   volumeMounts:- name: persistent-storage, and volumes:- name: persistent-storage should be same )
+	  
+	  kubectl apply -f 02-ebs-static.pvc.yaml
+	  kubectl get pods ( container created so ipudu container ekkadiki vellindho chooddamu )
+	  kubectl get pods -o wide ( take the Node Ip and search in ec2 instances, so ikkada idhi lucky ga 1b loki vellindhi adhey oka vela 1a loki vellintey apudu )
+	  
+	  if pod schedules in 1a and volume is in 1b, pod status will be in pending for continously. ( so idhi oka error anna maata, mee pod status pending lo vundhi ante meaning entantantey aa volume anedhi mount avvatledhu , avvalekapotondhi ani apudu meeru describe chesi choosarantey telustundhi )
+	  
+	  we have to see  delete and create  then pod sometimes created in 1a then we can observer above error 
+	  we cannot gurantee whether this pod is created in 1b only but manam k8 ki cheppali explicit ga manadhi already 1b lo vundey volume ani manaki telusu but k8 ki manam explicit ga cheppali antey there is something called NodeSelector
+	  k8 lo manaki schedular aney component vuntundhi 
+	  
+	  scheduler --> schedules your pods on to appropriate nodes
+	  kubectl get nodes --show-labels ( we can see the regions pod created ) 
+	  nodeSelector:
+		topology.kubernetes.io/zone: us-east-1a
+	delete the pod
+	create the pod again
+	
+	now we can see the pod created region and volume region same as us-east-1a ( alaagey ipudu volume section aws lo ki velli choostey in use ani choopistundhi )
+		so nenu check chesukovadaaniki oka LB service ni create chestaanu i can test it means data anedhi ekkadiki povatledhu ani
+	
+	add the lines 34 -47 in 02-ebs-static.pvc.yaml  service creation )( )
+	
+	kubectl apply -f 02-ebs-static.pvc.yaml
+	kubectl get svc
+	 kubectl get pods
+	 kubectl exec -it  <podname> -- bash  ( ikkada manam oka chinna file ni create chestaamu ) 
+	 cd /usr/share/nginx/html
+	 echo "<h1> Hi, i am from ebs static </h1>" > index.html
+	 check browser with LB DNS we can see the index.html content soipudu neneu everything delete chestunna 
+	 
+	 kubectl delete -f 02-ebs-static.pvc.yaml
+	 so data anedhi EBS lo vundhi, aws lo EBS lo volumes ni choostey  create chesina volume inuse nunchi available loki vochindhi but pod delete chesina kooda data anedhi volumes lo vuntundhi, so ipudu manam dhenni malli mount chesukundhaam 
+	 kubectl apply -f 01-ebs-static-pv.yaml  ( so manam ea pod ki mount chesukovalanna chesukovachu )
+	 so ikkada malli mount chesinapudu malli LB vostaadhi and manam EBS volume ni refer chestunnam kaabati mana data anedhi ekkadiki podhu 
+	 so we can see the LB target instances running to chekc if not kubectl get pods ( if the status is pending ) goto that pod for that 
+	 kubectl describe pod <pod-name> ( here we can see the pod info )
+	 kubectl get pvc 
+	 kubectl describe pvc <pvc-name> ( here we can see the error below as already bound to a different claim ) 
+	 kubectl get pv ( status as released )
+	 now we can delete PV as well before we forgot to delete that's why this EBS claimed error coming )
+	 
+	 kubectl delete -f 01-ebs-static-pv.yaml ( deleting the PV ) here we want to delete all ( 01-ebs-static-pv.yaml ,01-ebs-static-pv.yaml  resources )
+	 kubectl create  -f 01-ebs-static-pv.yaml PV creation )
+	 kubectl apply -f 02-ebs-static.pvc.yaml (all resources created )
+	 kubectl get pvc ( pvc anedhi Bound ayindhi )
+	 kubectl get pods ( pod is running ) 
+	 
+	 in browser we can check LB DNS now, we can see the content created in the pod but for now it is coming from EBS )
+	 so this is about static EBS volumes
+	 
+--> allagey manaki dynamic EBS volumes vundhi adhi next session lo chooddamu  
+	 
+	 
+	
+	
+	
+Lifecycle policies
+=================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--> what is PV ?
+	
+	PV is the wrapper object in k8 to represent the physical volume like EBS or EFS alaa 

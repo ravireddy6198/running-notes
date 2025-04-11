@@ -1,0 +1,339 @@
+
+
+																Session - 44
+															====================
+															
+															
+															
+															
+															
+															
+--> as usual create instance and install docker ( either manually or through terraform along with user data )
+
+ENTRYPOINT:
+---------------
+
+FROM almalinux:9
+CMD ["ping" ,"google.com"]
+
+
+--> docker build  and docker run we can see the ping google using CMD command 
+
+--> " docker run entry:1.0.0 ping facebook.com " here manam CMD lo ichina instruction ni runtime lo override cheyagalugutunnam 
+
+--> docker ps -a in that we can see Command it shows  " ping facebook.com "
+
+--> any instructions change in dockerfile we must use docker build again 
+
+FROM almalinux:9
+ENTRYPOINT ["ping" ,"google.com"]
+
+--> docker build  and docker run we can see the ping google using ENTRYPOINT
+
+--> when we do " docker run entry:1.0.0 ping facebook.com " we cannot override with ENTRYPOINT
+
+--> docker ps -a --no-trunc  : here we can see the command section above command execute like this " ping google.com ping facebook.com by using ENTRYPOINT
+	this will gives full details without shortning information like container id, Image name etc 
+
+FROM almalinux:9
+CMD ["google.com"]
+ENTRYPOINT ["ping"]
+
+--> using ENTRYPOINT and CMD  both here Entry lo vunde command CMD lo vunde options/inputs ni input ga teesukuntondhi
+
+--> " docker run entry:1.0.0 ping facebook.com " here ping the facebook.com
+
+--> here ENTRYPOINT is static we cannot override the ENTRYPOINT( by default this has that nature ) so ikkada ovveride cheyaleni command ni pettali like ping 
+
+
+CMD vs ENTRYPOINT
+==================
+1. CMD instruction can be overriden
+2. You can't override ENTRYPOINT --> ping google.com ping facebook.com. If you try to override entrypoint it will not override, but it will append
+3. for best results we can use CMD and ENTRYPOINT together.
+4. We can mention command in ENTRYPOINT, default options/inputs can be supplied through CMD. User can always override default options.
+5. Only one CMD and one ENTRYPOINT should be used in Dockerfile
+
+
+FROM almalinux:9
+RUN dnf install nginx -y
+CMD ["nginx", "-g", "daemon off;"]
+
+--> we have to run the container image of CMD folder
+
+-->container ki seperate storage vundadhu but container host resource ni use chesukuntundhi because container is running inside server, multiple containers running inside server all containers used hosts resources 
+
+--> docker run -d --name cmd cmd:1.0.0
+	docker exec -it cmd bash
+	
+--> here we can see container has root access by default but ikkada root access to evaryna developers container loki login ayitey developerski hosts yokka cpu ram hard disk access vostundhi ee cpu ram hard disk lo anni containers yokka data vuntundhi so developes ki ee access vostundhi akkada manaki security concen vuntundhi ( it is not secure ) generally in docker security is weak we can addreess the security explicitly 
+
+--> so never run your containers with root access  for that docker giving USER instructions given, create USER Dockerfile
+
+USER -> set the user of container
+-------
+
+FROM almalinux:9
+RUN useradd expense
+CMD ["sleep", "100"]
+
+-->docker build -t user:1.0.0 .
+
+	docker run -d --name user user:1.0.0
+		
+	docker exec -it user bash
+	
+--> still we have a root access inside container developers ki container access ichinapudu vallu andhuloki login ayi akkada root accesss vunnatlayitey developers vallaki nachina packages ni istall chestaaru like dnf install git -y like that so vallaki nachina commands ni install chesukuni container ni emyna cheyochu,container ni changes cheyochu apudu application effect ayye chance vundhi 
+
+--> security ni address cheyaali lekapote evaryna hackers containers ni access chestey vaallu server resources loki velli anni container applications data ni access chestaaru so for that docker given an instruction/suggestion atleast last instruction kante mundhu non root user to container ni run cheyandi ani
+
+FROM almalinux:9
+RUN useradd expense
+USER expense
+CMD ["sleep", "100"]
+
+-->  docker rm -f  : running container remove 
+		
+	docker run -d --name user user:1.0.0
+	
+	docker exec -it user bash
+	
+--> now we can see the expense user access inside container ( normal user access not root access so here normal user em cheyaleru they cannot install , they cannot access host data emi cheyaleru, even sudo kooda run avvadhu inside containers sudo vundadhu )
+
+
+WORKDIR :
+--------------
+
+--> set the working directory of container/image
+
+--> create WORKDIR folder Dockerfile
+
+FROM almalinux:9
+RUN mkdir /tmp/work-dir-demo
+RUN cd /tmp/work-dir-demo
+RUN pwd
+RUN echo "Hello from WORK DIR" > hello.txt
+CMD ["sleep", "100"]
+
+--> docker build -t work:1.0.0 .
+	
+	docker run -d --name work work:1.0.0
+	
+	docker exec -it work bash
+	
+--> we are in root folder but as per the Dockerfile it should be in /tmp/work-dir-demo folder 
+
+	cd /tmp/work-dir-demo here we cannot see the hello.txt file as per the Dockerfile instructions 
+	so here docker lo cd use chestey work avvadhu enni cd lu ichina docker adhi /. means root folder lokey vostundhi akkada hello.txt file ni create chestundhi for that 
+	
+	we can use WORKDIR
+
+FROM almalinux:9
+RUN mkdir /tmp/work-dir-demo
+WORKDIR /tmp/work-dir-demo
+RUN pwd
+RUN echo "Hello from WORK DIR" > hello.txt
+CMD ["sleep", "100"]
+
+--> docker build -t work:1.0.0 .
+	
+	docker run -d --name work work:1.0.0
+	
+	docker exec -it work bash
+	
+--> now we are in /tmp/work-dir-demo folder and also the hello.txt file also created in this folder /tmp/work-dir-demo only 
+	
+
+
+USER -> set the user of container
+WORKDIR --> set the working directory of container/image
+
+
+
+ARG
+------
+
+--> generally ENV variables can be accessed inside the container create ARG folder Dockerfile
+
+FROM almalinux:9
+ENV course="DevOps with AWS" \
+    trainer="sivakumar reddy" \
+    duration="120HRS"
+RUN echo "Hello ${trainer}" > /tmp/devops.txt
+CMD ["sleep", "100"]
+
+--> docker build -t arg:1.0.0 .
+	
+	docker run -d --name arg arg:1.0.0
+	
+	docker exec -it arg bash
+	
+	check the tmp directory a/c to Dockerfile instructions 
+	env
+	ENV variables container lopala access cheyochu and image build ayye time lo kooda RUN echo "Hello ${trainer}" > /tmp/devops.txt variable ni access chesi aa directory lo store chesindhi
+
+--> ENV variables can be access at the image building and in container also ( ARG anedhi only image building time lo maatramey )
+
+
+FROM almalinux:9
+ENV course="DevOps with AWS" \
+    trainer="sivakumar reddy" \
+    duration="120HRS"
+#here user1 is key, someuser is default value
+ARG USERNAME=Sivakumar
+RUN echo "Hello User: ${USERNAME}" 
+CMD ["sleep", "100"]
+
+
+
+--> docker build -t arg:1.0.0 .
+	
+	docker run -d --name arg arg:1.0.0
+	
+	
+--> we can check this command why it is used docker build -t arg:1.0.0 --progress=plain --no-cache
+
+--> we can see the value of USERNAME accessed at time of image building now we can override that USERNAME
+
+--> docker build -t arg:1.0.0 --progress=plain --no-cache --build-arg USERNAME=Some-user .
+
+--> now we can see the overriden value of USERNAME accessed at time of image building  ( so here ARGS to command line lo override cheyochu ) now we can see that value inside container 
+
+--> docker run -d arg:1.0.0 
+	
+	docker exec -it <ea> bash
+	
+	env
+	
+	here we cannot see the env USERNAME not appeared in all env variables inside container 
+
+--> ARG variables are only accessed inside image build, not in container ( ENV variables ni override cheyochu command line lo nunchi, arg lo set chesina variables ni container lopala access cheyaleru, at the time of build maatramey meeru access cheyagalaru)
+
+
+FROM almalinux:9
+ENV course="DevOps with AWS" \
+    trainer="sivakumar reddy" \
+    duration="120HRS"
+#here user1 is key, someuser is default value
+ARG USERNAME=Sivakumar
+RUN echo "Hello User: ${USERNAME}" > /tmp/devops.txt
+CMD ["sleep", "100"]
+
+--> docker build -t arg:1.0.0 --progress=plain --no-cache --build-arg USERNAME=Some-user .
+
+	docker run -d arg:1.0.0 
+	
+	docker exec -it <ea> bash
+	
+	cat /tmp/devops.txt
+	
+--> now we can see the content inside file but when we do
+
+	env
+	
+	variable is not present means it is accessed at the time building only but it is not present inside the container  ( so programmes aa USERNAME variable ni access cheyalevu ) here manam only content ni files loki set chesaam antey but container lopaliki aa variable access avvadhu generally programmes ENV variable ni container lopala access chestaayi dhaaniki taggatlu so arg lo meerichina variables environment variables loki set avvau 
+	
+--> what should be the first instruction in Dockerfile
+
+3. ARG can be the first instruction only to provide the version for base image. It can't be useful after FROM instruction
+
+--> present almalinux 9 use chestunnam after some time 10 vostundhi apudu manam Dockerfile ni change cheyali then but manam ala chesey kanna mana dhaggara vunna Dockerfiles ni run time lo change chesey laaga instruction vundaali 
+
+--> generally from should be the first instruction but some special/exceptional cases we can give ARG as the first instruction to supply the version for the base image 
+
+
+ARG version
+FROM almalinux:${version:-9}
+ENV course="DevOps with AWS" \
+    trainer="sivakumar reddy" \
+    duration="120HRS"
+#here user1 is key, someuser is default value
+ARG USERNAME=Sivakumar
+ENV USERNAME=$USERNAME
+RUN echo "Hello User: ${USERNAME}, image version: ${version}" > /tmp/devops.txt
+CMD ["sleep", "100"]
+
+--> docker build -t arg:1.0.0 --progress=plain --no-cache --build-arg USERNAME=Some-user .
+
+	here we can see version access avvaledhu 
+	
+	docker build -t arg:1.0.0 --progress=plain --no-cache --build-arg USERNAME=Some-user --build-arg version=8 .
+	
+	here also 8 is running but version maatram access avvaledhu so ikkada ARG version ichey version only FROM varaku maatramey pani chestundhi taruvata pani cheyadhu ( here mana use case vochesi ARG value ni FROM ki supply cheyadaaniki maatramey so value apply chesindhi after FROM work avvadhu that is the exception )
+
+
+3. ARG can be the first instruction only to provide the version for base image. It can't be useful after FROM instruction
+
+--> interviewr may ask question like okavela nenu ARG nicontainer lopala kooda Envronment variables dwaara access cheyalantey elaa ani adugutaaru ?
+
+	ARG value cannot be accessed inside the container but we want to access the ARG value inside the container for that we can 
+	set the ARG value to ENV variable inside Dockerfile
+	
+ARG version
+FROM almalinux:${version:-9}
+ENV course="DevOps with AWS" \
+    trainer="sivakumar reddy" \
+    duration="120HRS"
+#here user1 is key, someuser is default value
+ARG USERNAME=Sivakumar
+ENV USERNAME=$USERNAME
+RUN echo "Hello User: ${USERNAME}, image version: ${version}" > /tmp/devops.txt
+CMD ["sleep", "100"]
+
+--  docker build -t arg:1.0.0 --progress=plain --no-cache --build-arg USERNAME=Some-user .
+	
+	docker run -d arg:1.0.0
+	
+	docker exec -it <d09> bash
+	
+	env
+	
+	we can see the USERNAME value in env inside container 
+
+--> here ikkada user ARG lo edytey value ni supply chestunnado dhanni nenu ENV variable ki supply chetunna so that it is accessed inside the container 
+
+
+
+
+ENV VS ARG
+-------------
+1. ENV variables can be access at the image building and in container also
+2. ARG variables are only accessed inside image build, not in container
+3. ARG can be the first instruction only to provide the version for base image. It can't be useful after FROM instruction
+
+set the ARG value to ENV variable inside Dockerfile
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--> in interviewers may ask questions like oka shellscript or nginx install using ansible playbook or ec2 instance creation through terraform or nginx configuration using dockerfile ?
+--> CMD vs ENTRYPOINT
+--> ENV vs ARG

@@ -1,0 +1,240 @@
+
+																	Session - 54
+																=======================
+																
+																
+																
+
+
+
+
+--> manam k8 ippati varaku emem discuss chesaamu antey like
+
+Namespace
+Pod
+ConfigMap
+Secret
+ReplicaSet
+Deployment
+Service
+PVC
+PV
+SC
+StatefulSet
+HPA
+
+Helm Charts
+=============
+containarization antey 2 points cheppamu avi entantey
+
+1. image build
+2. run image
+
+so there are opensource official images.( like nginx, nodejs, java images vaatini build cheyalsina avasram ledhu vaatiki obviously anni vuntaayi ) taruvata running the image ki vochesariki manifest file raaastunnam kadha, so ee open source images ni elaa build chesaaru anedhi manakantey vallakey baaga telisuntundhi so ikkada
+opensource manifest files kooda vuntaayi, image builders tell us how to run the images with default values, we can always override those default values too..
+
+--> so ikkada 2 points entantey image build and image run cheyadam, oka popular images ni build chesi dockerhub lo pettuntaaru official vaalyna meru or nenu ayina pettuntaamu 
+	alaaney aa image ni elaa run cheyaali anedhi kooda manam kastapadalsina avasaram ledhu, ela run cheyaali anedhaaniki manifest files kooda raasi pettuntaaru vaatilo manaki optons istaaru meeru kaavalantey ichina values ea choose chesukondi ledha meekistamochina values to override chesukondi ani, ee rendu options ni manaki ichedhey hem charts anna maata 
+	images already vunnayi elaa run cheyaali anedhu helm charts dwaara telustundhi 
+
+dnf install nginx -y --> nginx will be installed ( nginx download and instaaled ) 
+so general ga ubunt ki ayitey ap package manger and RHEL ki ayitey dnf alaaney k8 lo kooda helm anedhi use chesukuni direct ga applications ni install cheyochu (open source or custom application ni kooda install cheyochu )
+
+1. helm is a package manager to deploy opensource applications or custom applications into kubernetes
+2. templatise manifest files
+
+--> install helm
+
+	 curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+ 	 chmod 700 get_helm.sh
+ 	 ./get_helm.sh
+	 
+	 we can add it to user_data while installing kubectl, eksctl etc along with helm also to be installed 
+	 helm install ayindhi so ipudu manam oka nginx applcation ni helm dwaara elaa install cheyaalo chooddam
+	 create helm repo ( resources gurinchi mottam helm documentation lo ney vuntundhi ) first create Chart.yaml refer below repo
+	 Chart.yaml ( here konni optional values and konni manadatory values vuntaayi )
+	 https://github.com/DAWS-82S/helm/blob/main/Chart.yaml
+	 taruvata templates aney folder create cheyaali , ee templates lo nginx ni install cheyaalanukuntunnanu dhaanikosam Deployment.yaml create chestunna alaagey service.yaml koods refer below for Deployment and service 
+	 https://github.com/DAWS-82S/helm/blob/main/templates/deployment.yaml
+	 so ee Deployment.yaml lo evevi frequent ga change avutaayi and evevi frequent ga change avvavo cheppalanukunnapudu 
+	 replicas: 3 #assume this will change ( incase we are not used HPA for autoscaling ikkada HPA ney increase chestundhi manam cheyamu )
+	 image: nginx: nginx:latest  # image version frequently changes
+	 ipudu service lo choostey frequent ga changey ayetivi max no changes but 
+	 assume  nodePort: 30007 # imagine this will change
+	 so templatized cheyadamantey enti meeku evytey frequent ga change avutunnayo 
+	 helm is useful to templatise the manifest files what ever the values frequently changes, we will submit the values actually at runtime so we can give for frequently changed values like this  replicas: {{ .Values.deployment.replicas }}, so ilaa ichinapudu dheeniki values elaa istaamu antey we can take values.yaml file at root level of the folder , do same for service as well
+	 https://github.com/DAWS-82S/helm/blob/main/values.yaml
+	 
+	 so ee helm anedhi manaki epudu use avtundhantey deploment cheyadam ante meaning enti imager version change avvadam ane kadha meaning genral ga, so image version ni manam dynamic ga pampistaamu for example ee roju mee imager version 1.0.0 lo vundhi and one week lo 1.2.0 lo release cheyabotunnamu apudu em cheyaali antey CI/CD lo idhanta dynamic ga complete automation chestaamu , CI/CD lo version 1.2.0 ani istey automatic ga deploy ayipotundhi but before going to CI/CD we need to understand this helm charts 
+	 so manifest file lo edit cheyakunda image version ni ilaa dynamic ga helm dwaara chestey, ee manifest file lo manual interaction taggutundhi and verery parameters ni touch cheyakunda manual interaction ni taggistundhi, so ila frequent ga changes jarigey vaati kosam templetise cheyadaanikey manaki helm anedhi use avutundhi ( so configuration files ni eppatiki touch cheyakunda dynamic values pass chesey laaga pettukovaali endhulo ayina ) 
+
+	 what is helm ?
+	 we can say hel is a package manager to deploy opensource or custom applications into k8 environment good for templetise the manifest files as well helm structure kooda adugutaaru
+	 templates folder
+	 Chart.yaml
+	 values.yaml
+	 so whatever the resources we use we will keep it inside templates folder and the values are from values.yaml 
+	 
+	 now we can see the helm commands
+	 git push, 
+	 helm install <chart-name> . ( current directory lo chart-name ni search chsi teesukuntundhi )
+	 helm install nginx . ( nginx deployed in the pods)
+	 kubectl get pods ( we can see nginx pods running )
+	 kubectl get svc ( we can see the LB service is running ) 
+	 
+	 so execution elaa jarugutundhantey first Chart.yaml file choostundhi name : nginx choosukuni templatees folder loki velli files annintini okkokkadhanni execute cheyadaaniki choostundhi andhulo dynamic values ni values.yaml dwaara techukuntu templates loni anni files ni execute chesukuntu veltundhi that's it 
+	 
+	 ipudu nenu image version latest kaakunda stable-perl ani change chestunna apudu elaa antey 
+	 git push
+	 helm upgrade nginx . ( upgrade ayipoyindhi new version to ) 
+	 kubectl get pods ( ikkada choostey paatavanni delete ayipoyi okkokkati kotta pods create avutuntaayi )
+	 helm history nginx ( here we can see the history of deployments ikkada 2 deployments chesaamu kadha ) 
+	 oka vela upgrade fail ayindhi then roll back cheyaali antey paata version ki rollback cheyaali apudu
+	 helm rollback nginx 1 ( here rollbacked means chartname:1 version ki rollback ayindhi ani meaning )
+	 helm history nginx ( so ikkada choostey 3rd revision ki move ayindhi adhi 1 ki roll back ayindhi ani choopistundhi )
+	 general ga CI/CD lo mana IMAGE_VERSION ani ichi image version dhaggara values.yaml lo, dhanniki value ni dynamic ga pampi helm upgrade kodataam antey and alaagey first status check chestaamu 
+	 helm status nginx ( ee command success ayitey we cannot do anything means run avutu vundhani adhey command fail avutundhanuko $? then rollback chestaamu )
+	 ipudu inkoka version ki upgrade chestaamu ( take version stable-bookworm-perl edit the values.yaml )
+	 git push
+	 helm upgrade nginx --description "upgradiing to new verson stable-bookworm-perl" . (it is upgraded to new version )
+	 helm history nginx ( we can see the description we provided with new version we can understand ea rvision lo ea version upgrade ayyamani )
+	
+	 we can use kustomization instead of helm as well ( but manam helm use chestaamu idhi konchem baaguntundhi ), now w can see the aws-ebs-csi-driver  
+	
+-->  dnf lo ayitey manaki repo ekkaduntaayi 
+	 /etc/yum.repos.d/    lo vuntaayi
+	 manam dnf install nginx -y ani kottinapudu emoutundhi ? pyna location vunde servers ki connect ayi akkadi nuchi fetch chestundhi alaaney idhi kooda package manager kaabatti first manam repos add cheyaali it is also just like helm chart refer below repo we can see the same folder structure of helm 
+	 
+	 https://github.com/kubernetes-sigs/aws-ebs-csi-driver/tree/master/charts/aws-ebs-csi-driver
+	 https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/install.md
+	 first add the repo 
+	 
+	 helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver  ( exactly same like dnf packeage installation , here helm package repo ) 
+	 helm repo update ( like dnf update ) 
+	 Install the latest release of the driver.
+	 
+helm upgrade --install aws-ebs-csi-driver \
+    --namespace kube-system \
+    aws-ebs-csi-driver/aws-ebs-csi-driver
+	
+	kubectl get pods -n kube-system ( ikkada manaki ebs-pods run avutoo vuntaayi ) 
+	so manam indhulo customisation cheyalantey oka values.yaml ni teesukuni aa yaml file ni dheeniki (ebs-csi-driver) ivvalsi vostundhi 
+	ikkada manam choodochu helm dwaara emem install chesamao
+	helm list ( default namespace lo nginx create ayindhi )
+	helm list -n kube-system ( indhulo kube-system namespace lo ayitey aws-ebs-csi-driver ni install chesaam ) 
+	oka vela manam uninstall cheyalanukunnam anukondi apudu
+	hel uninstall aws-ebs-csi-driver( name ) -n kube-system  ( aa ebs driver uninstall avutundhi )
+	kubectl get pods -n kube-system (pods running inside kube-system 
+	so this is open source application setup using helm
+	
+	so helm is clearly a package manager for custom applications or opensource applications into k8 to deploy 
+	helm uninstall nginx ( remove nginx ) 
+	kubectl get pods ( no resources found ) 
+-------------------------------------------------------------------------------------------------------------------------
+	
+--> so ipudu mana expense project ni templetise cheyadam simple helm reports dwaara, so plain k8 yaml files kaakunda project lo entantey useual ga helm use chetsaaru so 
+	vallaki konchem easy ga vuntundhi anna maata CI/CD ki
+
+	now expense project using helm
+	
+	create repo helm-expense
+	create mysql folder inside helm-expense and refer below repo 
+	https://github.com/DAWS-82S/helm-expense/tree/main/mysql
+	first create namespace
+	kubectl create namespace expense
+	helm install mysql . ( cd /helm-expense/mysql )
+	kubectl get pods-n expense ( ikkada pods pending means pods raakapovachu endhukantey drivers installation cheyaledhu kadha apudu first helm uninstall mysql then )
+	helm uninstall mysql 
+	drivers installation cheddam indhaaka manam helm to instal chesaamu kadha so
+	
+	helm upgrade --install aws-ebs-csi-driver \
+    --namespace kube-system \
+    aws-ebs-csi-driver/aws-ebs-csi-driver
+	
+	drivers install chesaamu 
+	ikkada manaki mysql Deployment use chesey chesukondi , statefulset use cheyakunda ( endhukantey statefulset konchem kastam avutundhi ) 
+	but for now follow the statefulset procrdure like IAM role, add permissions, and create the StorageClass, 
+	
+	ka 03-ebs-sc.yaml ( cd /k8-resources/volumes )
+	helm install mysql . ( cd /helm-expense/mysql )
+	kubectl get pods -n expense ( ikkada pod status is showing ContainerCreating means pending lo ledhu create avutundhi ani, ikkada one by one create avutaayi let's wait  ) 
+	kubectl get s -n expense ( mysql, mysql head-less service running so mysql helm completed 
+	-----------------------------------------------------------------------------------------
+	
+	create backend folder inside helm-expense and refer below repo 
+	https://github.com/DAWS-82S/helm-expense/tree/main/backend
+	first time ayitey helm install, adhey second time ayitey 
+	helm upgrade --install backend . ( second time ayitey upgrade avutundhi we can use directly this command )
+	kubectl get pods -n expense ( we can see the backend pod running )
+	-----------------------------------------------------------------------------------------
+	
+	create frontend folder inside helm-expense and refer below repo
+	https://github.com/DAWS-82S/helm-expense/tree/main/frontend
+	helm upgrade --install frontend .
+	kubectl get pods -n expense ( we can see the frontend pod running )
+	helm repos chaala vuntaayi open source community lo chaala mandhi pedutu vuntaaru 
+	helm lo manam ea folder joliki vellalsina avasaram ledhu manam only values.yaml okati choodali changes jarigedhi ikkada maatramey total helm setup ayina taruvata even values.yaml lo ni version kooda automate chestaamu CI/CD dwaara 
+	
+	helm dwaaramanam denni ayina install chesukovachu for  now ELK install chesi chooddamu 
+	Starting from ECK 2.4.0, a Helm chart is available for managing Elastic Stack resources using the ECK Operator. It is available from the Elastic Helm repository and can be added to your Helm repository list by running the following command:
+	helm repo add elastic https://helm.elastic.co
+	helm repo update
+	manam enni helm repos ayina add chesukovachu helm repo list ( we can see the all repos added in helm repository )
+	helm install es-kb-quickstart elastic/eck-stack -n elastic-stack --create-namespace ( for this we need to install crd ( custom resource def like kind:pod, kind:expense )
+	cred anedhi anta popular kaadhu dheeni valla ekkuva disadvantages vunnayi so ikkda crd to dependency vundhi elk ki so we can go for prometheus
+	
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts  ( repo added to helm repository )
+	helm repo update
+	helm install [RELEASE_NAME] prometheus-community/prometheus  ( [RELEASE_NAME] = prometheus ) 
+	kbectl get pods ( ikkada choostey prometheus ki chendina pods anni run avutuntaayi, bit ikkada pendig lo vundhi some dependencies required we can see this in future classes ) 
+	so this is all about helm 
+	repos add to heml repository chesukovadam, update cheyadam helm repository ni, list cheyadam , uninstall cheyadam anna maata 
+	now helm list  ( listing the charts)
+	helm uninstall prometheus, backend, frontend , mysql  ( to uninstall all charts do one by one ) 
+	ipudu manaki kaavalantey repos kooda delete cheyochu 
+	helm repo list ( listing the repos)
+	helm repo remove <repo-names> ( deleting all repos ) 
+	
+	so this is all about helm charts 
+	
+--> helm anedhi EKS AKS GKS denikyna use avutundhi means idhi k8 kosam develop chesaaru which means kubernets running to install applications ( idhi k8 native resource avuna kaadha check cheyaali ) 
+
+--> helm anedhi usually okati open source applications install cheyalanukunnapudu you can use helm so ELK ni nenu install cheyalannapudu nenem cheyaali actually ELK image ekkadundho choosukuni dhaaniki sambandhinchina manifest files anni raasukovaali or drivers teesukunnamu ( kustomize kooda same like helm actually but helm is so popular ) ikkada anni cheyalantey nni manifest fies raasukovaali kadha like kindhi resources anni one by one configure chesukuntu raavali   like 
+Namespace
+Pod
+ConfigMap
+Secret
+ReplicaSet
+Deployment
+Service
+PVC
+PV
+SC
+StatefulSet
+HPA
+-------
+ELK, prometheus install cheyaali antey
+but helm vaallu em chestunnaru ivanni default softwares ea kaabatti, default options anni pettesi manaki ichestunnaru and manaki options kooda istunnaru meeru kaavalantey override chesukondi ani so simple ga deploy cheyadaaniki k8 lo use avutundhi helm anedhi, inka manaki "templetise cheyadaaniki kooda use avutundhi"
+
+--> manaki EKS kaakunda on premise kubernets laaga kaavalanukunnapudu manam kubeadm use chesi chaala cheyalsi vostundhi but manaki market lo kondharu vuntaaru vendors laaga like openshift is a platform for k8 service antey idhoka vendor laaga manam valllani adigitey vallu vochi manaki k8 cluster install chesi istaaru and longterm supoort kooda vuntundhi ( they charged for this service veellu k8 source code ni teesukuni 1 or 2% chnages chesi aa cluster mottanni manaki istaaranna maata directly apudu manam direct dhanni vaadukovachu ( we need to see this openshit because some projects used this refer abhishek veeramalla ) ) 
+
+--> platform as a service antey meaning k8 anedhi paas, platform antey enti andhuloney anni features vunnayi ani like configmap, secrets, volumes management etc ikkada docker and kubernets ki difference choostey volume managemnt anedhi doker lo ledhu dhaani kosam ikkada wrapper objects ni create chesi, bayata create chesina volumes ni mount chesukovadam and dynamic ga create cheyadam ee options anni manaki ichindhi k8 alaaney networking kooda vundhi, alaaney k8 lo native ga configmaps vunnayi , secrets vunnayi ivanni k8 software lo voche features anna maata so that is EKS we called it as a PAAS, so ee PAAS ni teesukuni aws vaallu EKS annaru, azure vallu AKS annaru, google vallu GKE annaru, so PAAS ni vaallu teesinaaru kaabatti ee kubectl anedhi native ga vochina command idhi elaanti cluster lo ayina work avutundhi adhi on-prmise ayina, EKS ayina, AKS ayina, openshift ayina kooda  mottam idhi this is PAAS command ok, alaaney Helm kooda 
+
+--> Helm is like open source package manager just like dnf, apt laaga , Helm anedhi k8 lo oka package manager ante idhi only k8 kosamey develop chesaaru 
+
+	
+	
+	
+	
+	
+	
+	
+	
+	 
+	 
+	 
+
+
+
+
+

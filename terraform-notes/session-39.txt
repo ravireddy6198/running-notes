@@ -1,0 +1,42 @@
+
+													Session - 39
+												======================
+												
+												
+												
+												
+												
+
+Trarget group --> deregistration delay ( means mana instances ki evyna request lu vostuu vuntey avi access avvadaaniki manam deregistration delay pedataam when we are going to terraform destroy
+
+terraform destroy --> ASG ki instances ni delete cheyamani cheptundhi apudu asg target group ki cheptundhi apudu tg waits until deregistartion happens ( default ga idhi 5 min vuntundhi ) ikkada asg timeout delay 5 min ichaam antey total ga 10 min padutundhi(tg 5 min + asg 5 min) so we have to change to 1 min in tg why because tg ki vunna requests ni complete cheyadaaniki 1 min time saripotundhi ( tg has already 5 mi thats why we decreased to 1min delay in tg )
+
+
+
+CDN --> aws cache network ( in aws cloud front distribution ( go to cloud front and create distribution ani meaning ) )
+aws have edge servers across the globe before serving content to the users, aws cache the content in edge servers so that latency will be very less useful in serving images, videos, static js, css files 
+
+get, put, post, delete
+
+only get content maatramey cache cheyochu
+
+origin --> where the real content exist
+
+cache behaviours
+evaryna requests /images/* ,/videos/*, /static content/* ani istey --> this shoud be cached 
+apart from the above /* --> this shoud not be cached
+
+how can you delete all the cached content in edge users?
+invalidations --> epudyna manam redeployment chesaamu antey aman edge servers lo vundey content delete cheyadaaniki invalidations use chestaam malli users get chesinapudu origin servers nunchi edge servers ki akkadi nunchi users ki vostundhi content
+
+origin --> s3, ALB,  etc
+
+
+ikkada mana projects origin vochesi web-alb so customers direct ga web-alb ni hit cheyakunda cloud front ni hit chestaaru
+
+goto clodfront --> create distribution --> select the origin origin domain as expense-dev.daws82s.online ( web-alb dns ) --> protocol https only --> Name also as domain name -->in default cache behaviour viewer protocol policy as https only( cdn url ni https only to ney acceess cheyaali ) --> cache policy as caching disabled --> origin request policy as None -->
+
+
+dergistartin delay in tg means vunna request lu anii drain out ayipovadam kosam 
+
+create invalidations --> /* ichi create invalidation ani istey edge location lo vunna content anta delete avutundhi new request anni origin nunchi content teesukostaayi

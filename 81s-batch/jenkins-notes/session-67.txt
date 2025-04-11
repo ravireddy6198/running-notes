@@ -1,0 +1,279 @@
+
+																				Session - 67
+																			========================
+																			
+																			
+																			
+																			
+
+must watch session for deployment of RDS, backend and frontend through CICD
+
+
+
+https://github.com/daws-81s/expense-infra    ( this in infra setup manam ee repo dwaara mottam infra ni setup chestunnam )
+
+--> mana ippativaraku mysql image teesukuni chesaamu but manaki RDS service vundhi, so mysql ki badhulu RDS service ni use chetaamu manual and bastion service vochesi either RDS or eks ki connect avvadaaniki use chestaam for that RDS mysql should allow 3306 from bastion in security group of RDS mysql and alaagey EKS nodes nunchi kooda allow cheyaali endhukantey pods eks loney vuntaayi kaabatti backend pods database ni onnect ayyetapudu 3306 kooda important ( mysql, eks pods )
+
+	 manam RDS create chestapudu default schema ni load chesaamu so transactions aney schema default ga create avutundhi so ipudu manam RDS ni configure cheyaali for that manam RDS ki connect avvali 
+	 
+	 Since we are using RDS instead of MySQL image, we need to configure RDS manually, we are creating schema as part of RDS but table and user should be created.
+
+--> login bastion 
+	sudo dnf install mysql -y ( if not installed )
+	mysql -h expense-dev.czn6yzxlcsiv.us-east-1.rds.amazonaws.com -u root -pExpenseApp1   ( replace rds url of mine ) 
+	USE transactions;
+	
+	CREATE TABLE IF NOT EXISTS transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    amount INT,
+    description VARCHAR(255)
+	);
+	
+	CREATE USER IF NOT EXISTS 'expense'@'%' IDENTIFIED BY 'ExpenseApp@1';
+	GRANT ALL ON transactions.* TO 'expense'@'%';
+	FLUSH PRIVILEGES;
+	
+	exit ( so mysql configuration ayipoyindhi ) 
+	
+---------------------------------------------------------------------------------------------------------------------------------------------------------	
+	manam k8 pods lo frontend pods port no:80 ni open cheyalekapotunnayi normal user ga run chesetapudu manam securtiy purpose kosam em chesaamu expense-docker repo lo frontend docker file choostey USE nginx ga run chesaamu at the end, so ila security purpose kosam chaala thin ga alpine image ila chesinapudu entantey aa pods 1024 kante below vundey ports ni manam system ports antaamu ( port no : 22, 53, 80, 25 ivanni system internal use chesukuney ports anna maata famous protocols ki ) mana normal pods without root access aa ports ni open cheyalekapotunnayi k8 lo vunde security feature valla, so andhukani manam em chestunnam anty port no 8080 ni use cheyaali, nginx ni port no 80 nunchi 8080 ki ea configuration file lo changes cheyaali ante manaki nginx.conf aney file vundhi andhulo changes cheyaali ( ee nginx.conf file lo
+	server {
+		listen   8080;
+	}
+	ivvali ) 
+	
+	Target group binding
+	
+	If we are running frontend using normal user it can't bind the port 80. non root privelege user running container are not able to open system ports which are under 1024.
+	So we have to use port no 8080 for frontend. Make sure
+	nginx.conf opens port no 8080 instead of 80.
+	ALB target group health check port should be 8080.
+	frontend service target port should be 8080 instead of 80.
+	
+	and manifest.yaml service lo kooda port : 8080  vundaali instead of 80 
+	ila kaakapotey root user ayina run cheyaalu but manam USER to ney veltaamu easy and better 
+	so ivanni manam frontend chesetapudu changes cheyaali ( refer readme.MD in this repo  https://github.com/daws-81s/expense-infra )
+	
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+Ingress Controller setup :
+
+--> manam bastion host nunchey configure cheddamu
+
+	Login to bastion host and get the kubeconfig of EKS cluster
+	aws configure
+	aws eks update-kubeconfig --region us-east-1 --name expense-dev  ( eks configuration chestunnamu )
+	kubectl get nodes ( nodes ni choodochu )
+	
+	Create namespace expense
+	kubectl create namespace expense  ( expese namespace create chesaamu ) 
+	
+	ika below anni aws ingress controller nunchi teesukochinavey
+	
+	AM policy
+	curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.10.0/docs/install/iam_policy.json
+	
+	IAM Role created
+	aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+	
+	Create Service account. Replace your account ID. ( cluster , attach-policy-arn, region must be replaced mainly replace to our attach-policy-arn)
+	
+	eksctl create iamserviceaccount \
+	--cluster=expense-dev \
+	--namespace=kube-system \
+	--name=aws-load-balancer-controller \
+	--attach-policy-arn=arn:aws:iam::315069654700:policy/AWSLoadBalancerControllerIAMPolicy \
+	--override-existing-serviceaccounts \
+	--region us-east-1 \
+	--approve
+	
+	Install aws load balancer controller drivers through helm.
+	
+	helm repo add eks https://aws.github.io/eks-charts
+	
+	helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense-dev --set serviceAccount.create=true --set serviceAccount.name=aws-load-balancer-controller
+	
+	Make sure load balancer pods are running
+	kubectl get pods -n kube-system ( to see the load balancer pods are running )
+	
+
+so mottam infra structure setup ayipoyindhi ipudu mana backend application ni deploy cheyaali for that
+
+	so backend repo use chesi jenkins dwaara pipeline chestey image vostundhi but aa image ni manam ecr ki push cheyaali  ( Amazon ECR --> private registry -->Repositories ikkada backend ni open chestey akkadey steps ichintaaru ECR ki build chesina image ni elaa push cheyaalani so aa steps ni use chesi jenkinsfile lo push ayyelaaga stage ni mention chestaamu refer below  )
+	
+	stage('Docker build') {
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                    aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${account_id}.dkr.ecr.us-east-1.amazonaws.com
+
+                    docker build -t ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion} .
+
+                    docker images
+
+                    docker push ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion}
+                    """
+                }
+            }
+        }
+		
+--> create aws credentials in jenkins 
+	create pipeline for backend 
+	https://github.com/daws-81s/backend/tree/0bbea47faf32f41603f8fe01e9affe0ad9fb34c9
+	
+	by using this repo create pipeline name with backend and to see the image pushed to ECR finally ( aws console ECR lo image push ayindho ledho choodali ) 
+	next deploy stage  ( manam aws lo deploy chestunnam kaabatti we need to add in jenkinsfile with withAWS(region: 'us-east-1', credentials: 'aws-creds')
+	ikkada helm charts dwaara cheyaali kaabatti py repo lo helm aney folder ni create chestunna 
+	so mana pod anedhi eks node lo run avutundhi kadha so ee mysql anedhi 3306 ni eks nodes nunchi accept cheyaali ( see the sg for mysql in aws --> inbound rules )
+	
+sed editor
+==========
+streamline editor ( automation kosam vaadutaam means oka file ni open cheyakunda data ni substitue cheyadam )
+
+vim --> only for user, need to open and replace ( idhi manual manam chesedhi open chesi manamey substitue chestaamu )
+
+1s
+2s
+%s/<word-to-find>/<replace-word>/g
+
+sed -
+
+	https://github.com/daws-81s/backend/tree/b6032245bbdf765654bb7a390ea1d667851a5c1d  ( use this repo and build the jenkins file )
+
+--> backend pilpeline --> build now koditey manam choodochu bastion lo
+	kubens expense
+	helm list ( showing backend )
+	kubectl get pods ( two pods are running )
+	kubectl logs <take one pod Name > ( to see the app started on port 8080 )
+	
+	so ipudu developers em chestaaru antey continuous ga changes chestuntaaru vaala files lo apudu chnages chesina prati saari valla version number changes chestaaru ( changes version in pakage.json file give any thing comments as a change )
+	https://github.com/daws-81s/backend/commit/bb489f502bb729b5927ac1f62c587b983183b8e5 ( please see changes made in the repo ) 
+	git push the code ( here backend as the repo name ) and build the pipeline ( now we can see chnages inthe deployment here revision : 2 appeared in console output ) now
+	in bastion
+	kubectl get pods ( here we can see the old pods terminating and new pods are running it means new deployment successful )
+	
+----------------------------------------------------
+--> so ilaaney manam frontend ki kooda setup chesi chooddamu for that download frontend repo code  for that use this repo code for frontend setup
+	https://github.com/daws-81s/frontend/tree/4c4803e63f29e95974c05c4de9349dfd9f8c60ef
+	
+	change the port no in nginx.conf file with 
+	server {
+		listen   8080;
+	}
+	ivvali ) 
+	
+	frontend lo version enable cheyadaaniki package.json file ni teesukuni dependencies teesi vesi use chesukovaali
+	manam already ingress use chasaamu kadha for now target group binding use chetsaamu so manaki infrastructure lo everything manaku mana controller lo vundhi kaabatti ikkada means everything infra mottam manamey create chesaamu like target group listner etc kaabatti so we don't need ingress resource , we have target group binding 
+	so manam k8 lopala endhuku create cheyadamu antey mana controle lo vundevanni manamey create cheddamani sowe are doing like this we are going for target group binding 
+	
+Note :( but manam ikkada ingress to kooda practice cheyaali interviews lo adugutaaru dheeni meedha )
+---------
+
+	ipudu general ga epudyna entantey k8 ki bayata access ichi k8 ni create cheyamandam kante mana control lo vundevi manamey terraform to create chesi within the k8 manam dynamic ga create chesukovadam better 
+	
+	tgb.yaml ( target group binding creation ) 
+	
+	create aws credentials in jenkins
+	create pipeline for frontend and build now then we can see the below commands in bastion to confirm deployment success or not
+	
+	kubectl get pods ( here we can see the frontend pods aare running )
+	kubectl get targetgroupbinding ( here we can see the frontend )
+	
+	so ipudu choostey ee frontend pods anevi target group lo targetgroupbinding laaga vostaayi ( for that we have to see the aws Traget groups (see the pods and are Healthy ) )
+	ikkada okavela nenu pods delete chesaanu anuko malli kottavi vostaayi for that goto
+	
+	kubectl get pods -o wide
+	kubectl delete pod <one-frontend-pod>   ( pod got deleted )
+	now we can see the target groups in aws here kotta pod okati create avutuntundhi 
+	
+	ipudu manam public ki CDN URL istaamu if present the CDN, otherwise ALB URL istaamu 
+	in browser we have to give https://expense-cdn.hitaws82s.fun istey manaki front app vostundhi and manam konni expenses add chesi successful ga deploy ayindho ledho choodali
+	
+	flow of request 
+	cdn--> alb --> like ingress means listeners, rules, tgb --> k8 loki velli --> RDS loki mana data save avutundhi 
+	
+	idhi dev kaabati https://expense-cdn.hitaws82s.fun (cdn-dev) ilaa ichaamu but
+	adhey public ichinapudu direct ga https://hitaws82s.fun ani istaamu
+	
+	so general ga devops vallu andharu chesedhi deployment varaku so ipudu manam code lo ea changes chesina webhooks anedhi configure cheyochu adhi frontend / backend edyna for that 
+	
+	goto github --> frontend repo --> settings --> webhooks --> add webhook --> payload url : http://jenkins.hitaws82s.fun:8080/github-webhook/ --> content type : application/json --> ssl verification : disable --> Let me select option : pushes tick mark --> add webhook 
+	
+	goto frontend pipeline --> configure --. build triggers --> tick mark the GitHub hook trigger for GITScm polling --> apply and save 
+	
+	now imagine forntend developers change their changes like version or any code then they pushed the code to github then immidiately triggered the build job because of webhooks triggers 
+	
+	so okavela testing vaallu kaani testcases raastey akkadey test aney oka stage pettukuni Jenkinsfile lo akkadey manaku test cases kooda run ayipotaayi anna maata 
+	
+	so general ga developers em chestaaru rojanta valla changes ni commit chesukuntoo final ga vallu git lo push chestey apudu jenkins lo automatic ga mottam build ayipoyi ikkada deployment kooda ayipoyi test cases kooda run ayipotaayi anna maata 
+	
+	
+	
+Note : so idhi devops manam ippativaraku chesindhi inka devsecops ki vostey scanning enable cheyaali satges lo  
+----
+
+Scanning  
+==========
+shift left ante enti 
+shifting the security scannings and testing in dev before pushing code to main branch. When developers push code to feature branches we should scan and test
+
+scanning lo manaki multiple types vunnayi 
+
+static source code analysis --> SonarQube use cheyochu 
+static application security testing --> SonarQube/GitHub
+dynmaic application security testing --> Veracode  ( mee app'n ni public lo peditey public dhanni elaa attack cheyadaamiki try chestaaru ani replicate cheyadam anna maataa )
+open source librarby scan --> NexusIQ/GitHub
+image scanning --> ECR Scanning
+
+--> ee scanning manam cheydam varakey but ee scannings lo evyna issues vostey evaru fix cheyaali ante developers responsibe , manam only scanning chesi report ivvadam varaku maatramey 
+
+unit testing --> should be done by developers
+functional testing --> testers
+
+function --> 
+brick
+
+login(username, password){
+	query db();
+	checkTheResult();
+}
+
+--> so ipudu manam sonarqube setu cheyaali idhi general ga SRE team vaallu installations and updates choostuntaaru but manam ikkada chooddamu ( dheeniki charges padataayi kaabatti oka saari practice chesi Jenkinsfile lo comment cheyaali ) for that
+
+	create one EC2 --> take AMI : sonae CE ( in market place ) --> t3.medium ( because sonar is heavy ) --> key attach any key --> sg : allow-all --> storage : 30 Gib --> launch instance
+	
+	ikkada instance launch avvagaaney koddi sepati taruvata sonarqube anedhi up ayipotundhi anna maataa
+	so ipudu ee sonarqube em cheyaalantey mana code ni and pipelines ni run chestunnam kadha run chesina prati saari scan kooda chesi aa report anedhi submit cheyalanna maata 
+	we can use sonarqube as a Docker image instead of ec2 instance also ( general ga companies lo paid versions maatramey use chestaaru manam docker images ni kooda teesukuni sonarqube ni setup chesukovachu ) --> we have to practice docker image as a sonarqube also if not covered in the upcoming sessions
+	
+	in browser we can access sonarqube by seraching http://<IP>:9000  ( we can see the sonarqube in browser ) once opening username & passwd : admin (only) 
+	so next session lo migata sonarqube setup ni chooddamu 
+	
+	unsubscribe the instance ( see screeshots ) 
+
+
+
+VM
+Docker install
+docker run -p 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-->

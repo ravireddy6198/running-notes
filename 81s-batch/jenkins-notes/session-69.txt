@@ -1,0 +1,239 @@
+
+															Session - 69
+														==========================
+														
+														
+														
+														
+
+
+--> ninna cheppina vidham ga scans anni enable cheyaali CICD lo akkada evyna vulnerabilities vostey avaatini developers ea fix cheyaali inka devops valli developers vulnerabilities ni fix cheselaaga track cheyadamey mana work
+
+	so general eks cluser okko environment ki okkokkati vuntundhi 
+
+--> so general CI anedhi okka saari maatramey run chestaam like dev lo ikkada vochina image ney migata environments lo deploy chestaam CI ni anni environments lo run cheyamu dheenney manam build once run any whare aney strategy ga cheppochu ( interview lo )
+
+1. seperate CI and CD, because we can use CD job to deploy our application to multiple environments
+build once and run anywhere. 
+
+100 commits push chesety developers--> no need to deploy 100 times....worst case 100th time deploy should be there so dheeni kosam manam (devops engineers ) conditions apply cheyochu 
+
+our pipeline will have an option to choose deploy or not ( dheeni kosam oka parameter teesukuni stage deploy lo when condition petti, build triggers pettali )
+
+-- take one more repo for deploy only for this use this repo
+
+	https://github.com/daws-81s/backend-cd/blob/main/Jenkinsfile
+backend -> upstream
+backend-deploy --> just helm charts.downstream
+
+1. project
+2. component
+
+--> use below repos for understanding CI and CD seperate 
+
+	https://github.com/daws-81s/backend/blob/main/Jenkinsfile.bkp
+	
+--> create pipeline for backend so backend valla kosam oka folder create cheddamu ee folder lo 2 jobs vuntaayi 
+			backend-ci  
+			backend-cd   
+			
+	open bastion in mobaxterm configure the RDS and EKS cluster for that run below repo for commands
+		https://github.com/daws-81s/expense-infra/blob/main/readme.MD
+	
+	create pipelines for the backend-ci and do "build now"  ( use the repo for this pipeline https://github.com/daws-81s/backend/tree/8dc8c6446b453141239e35454924a4061261d379     or   https://github.com/daws-81s/backend/blob/main/Jenkinsfile.bkp1)
+	
+	ikkada choostey nenu deploy select chesukoledhu kaabatti so meeru create chesey prati pipeline kioka folder create chesi dhaanni lo rendu jobs create chestaaru which means 
+		backend ani oka folder anukuntey andhulo ( backend-ci and backend-cd aney 2 pipelines laaga )
+		frontend ani oka folder anukuntey andhulo ( frontend-ci and frontend-cd aney 2 pipelines laaga )
+		
+		ikkada backend repo lo helm folder avasram ledhu endhukante manam backend repo ni backend-CI ki vaadutunnam which means ee repo only CI work avutundhi and CD vere repo trigger avutundhi but ikkada practice kosam helm folder ni alaagey vunchaamu 
+		
+	  so developer anni commits push chesukuni so ipudu final commit anna maata backend-ci pipeline dwaara tana changes ni test chesukuntaadu and backend-cd dwaara deploy chesukuntaadu ( backend-ci lobackend-cd trigger vundhi )
+		
+	create pipelines for the backend-cd  ( use the repo for this pipeline https://github.com/daws-81s/backend-cd/tree/596c55037d1713c7f54f37df92ae529831578bac )
+	"build now"  ( here is final, first build with parameters for backend-CI and then build now for backend-cd )
+	
+	in bastion
+	kubens expense
+	kubectl get pods  ( so backend pods are running means backend successfully deployed )
+	
+	so ipudu em chesaamu fina ga ante CICd anedhi rendu ( backend-CI & backend-cd ) create chesaamu manam backend repo anedhaaniki developers owner and backend-cd anedhaaniki devops engineers owners anna maata so ee deployment ni developers nunchi teesesaamu, so teesesi vaallu korukunnapudu manam deploy anedhi cheselaaga rendu ga vidateesaamu anna maata and ee deployment ki konni parameters kaavali aa parameters ni backend jenkins file nunchi pass chestaamu 	
+	
+	so ippativaraku branchig vaadaledhu ee jenkins li like feature baranch alaaga anna maata
+	
+multi branch pipeline --> a pipeline should be there for every feature branch to support their development
+	multi branch pipeline ante different different branches ki seprate seperate pipelines ni istundhandhani meaning
+	
+	projects lo oka 50 components vuntaayi apudu 50 jenkins files anevi create cheyadam anedhi tough kaabati manaku jenkins shared library anedhi vundhi so
+	
+jenkins shared library ;
+------------------------------
+
+--> As Pipeline is adopted for more and more projects in an organization, common patterns are likely to emerge. Oftentimes it is useful to share parts of Pipelines between 
+	various projects to reduce redundancies and keep code "DRY" [1].
+
+	Pipeline has support for creating "Shared Libraries" which can be defined in external source control repositories and loaded into existing Pipelines.
+
+code reuse means 
+
+function(input)
+1. You can call any number of times
+2. it takes input and process something
+
+jenkins-shared-library means --> pipeline as a function, it takes input and run the pipeline --> these are called central
+
+advantages :
+any number of projects can call this shared pipelines at a time
+no need to maintain pipelines differently for different project
+easy updates
+enforce standards at the high level
+
+--> enforce standards at the high level which means 100 components vunnayanukondi okko team ki seperate ga devops engineers vuntaaru but ikkada andharu jenkins pipelines oke laaga means okate standards maintain chestaarani guarantee ledhu so we can enfore standarads at high level ( central place ) 
+
+	create jenkins-shared-library repo
+	for reusing the piplines at central place across all projects means oka jenkins file vuntundhi mana project lo akkadi nunchi adhi jenkins shared library ni call chestunthi apudu dynamic ga pipelines create avutaayi ( refer this repo https://github.com/daws-81s/jenkins-shared-library/vars central pipelines ) so mottam jenkins file loni code ni jenkins-shared-library vars lo pedataamu ika mana projects lo jenkins file lo manam central place lo ni jenkins-shared-library pipelines ni call chesi pipelines ni create chestaamu projects specific ga 
+	
+	
+
+nodeJSEKSPipeline(input) --> by default call function will be called
+
+nodeJSEKSPipeline.function_name() --> if different function name given 
+
+konni projects lo central devops engineers vuntaaru vaallu em chestaarantey standards ni set chestuntaaru central pipelines lo
+
+Central DevOps Engineers
+-----------------------
+Ansible Roles
+Terraform Modules
+Jenkins central pipelines
+
+--> central pipelines raasetapudu konni gurtu pettukovaali 
+
+1. what is the programming language
+2. what is the deployment platform ( like VM's or EKS ) 
+3. what is the build tool --> maven and gradle, ant
+
+nodeJSEKSPipeline --> EKS platform ayitey ee pipeline raasukuntaamu central place lo 
+nodeJSVMPipeline --> idhi legacy VM's ayitey seperate pipeline raasukuntaamu central place lo 
+
+so that ipudu manaki oka kotta project vostondhi apudu central Devops team vaallu adugutaaru meeru ekkada deploy cheyabotunnaru ani apudu kotta project vaallu VM's antey apudu centraldevops team vallu we have already for the pipeline for VM ani cheptaaru alaagey EKS ayitey dhaaniki kooda ready ani cheptaaru endhukantey central place lo aa pipelines ready ga vunnayi veelu means kotta project vaallu simple ga pipelines create chesukovachu jenkins-shared-library dwaara 
+
+@Library('jenkins-shared-library') _  --> we are calling jenkins-shared-library
+
+Map/dictionary --> key/value
+
+--> mana projects nunchi jenkins-shared-library ni call chestunnam kaabatti mana project jenkinsfile lo inputs ivvali like 
+
+1. project
+2. component
+3. environment --> by default DEV
+
+--> so jenkins-shared-library use chesi mana projects lo pipelines ni ilaa create chestaamu refer below repo
+	
+	https://github.com/daws-81s/backend/blob/main/Jenkinsfile
+	
+	so ipudentantey kotta project vaallaki manam ee pipeline jenkins file istaamu above repo, vallu just valla project specific parameters ni pass chestey chaalu apudu ee jenkins file nunchi central pipeline dwaara valla projects ki kaavalsina pipelines create ayipotaayi every time ( no hardcoding all are dynamic ) 
+	
+	so oka project mana dhaggaraiki vochinapudu project onboarding antaamu so manam daily roles and responsibilies entantey project vaallu devops engineers ni approach avutaaru so vaallato meeting (central devops team)avutundhi aa project vallaki devops setu cheydaaniki for that 
+
+Project Onboarding
+---------------------
+1. programming language enti 
+2. deployment platform enti
+3. branching strategy --> feature branching strategy
+
+SOP --> if any new project comes, we meet development team and setup below things
+Jenkins folders
+SonarQube
+K8 namespace
+ECR repo
+Veracode target
+Github dependabot
+Dockerfile
+Helm charts
+
+	so ikkada kotta project lo oka devops engineer vuntaadu atanu central team vallato coordinate avutaaru devops set cheyadaaniki ( idhanta pedda pedda projects lo jarugutuntundhi )
+	
+	@Library('jenkins-shared-library') _ ( ee name ni elaa refer chesukuntundhi jenkins github lo means github anedhi direct ga refer cheyaledhu general ga for this we have som configuration required for that goto jenkins --> manage jenkins --> system --> Global Trusted Pipeline Libraries --> add --> Name : jenkins-shared-library, Default Version : main, tick Load implicity( first three ticks the boxes if not ) , Project repository : https://github.com/ravireddy6198/jenkins-shared-library.git --> apply & save )
+	
+	so @Library('jenkins-shared-library') _  (ee line ni execute chesetapudu jenkins em chestundhantey // gets the global pipeline libraries in system configuration)
+	
+	pushing the code to jenkins-shared-library repo finally 
+	
+	delete backend-CI pipeline in jenkins and stay the backend-CD pipeline only
+	
+	create pipeline as backend-ci ( select multi branch pipeline )--> ok --> branch sources : select git , project repo : https://github.com/ravireddy6198/backend.git --> apply & save 
+	
+	so ipudu em avutundhantey enni branches vuntaayo project lo anni pipelines automatic ga create avutaayanna maata ( ikkada backend-CI pipline choostey it is success ) 	
+
+	so ipudu developers em chestaaru oka kotta feature ni implement chestaaru apudu vaallu
+	git checkout -b new-feature ( backend repo lo )
+	git add .; git commit -m " addded "; git push origin main ( so all backend code committed to this new-feature branch ) 
+	code changes happend like give version : 1.0.5 like that and add some comments in Transactionservice.js so thses are the changes made by developer and push it to new-feature branch ( imagine developers made some changes in his code ) , so it means kotta branch create ayindhi kadha ( new-feature ani )
+	
+	now goto jenkins --> backend-ci --> scan Multibranch Pipeline now --. koditey jenkins automatic ga branches ni findout chesi developers ki pipeline ( jenkins server lo ) anedhi automatic ga vochestundhi ( pipeline vochi and build kooda jarigipotundhi first time lo just scan chestey and next time choostey new-feature pipeline create ayuntundhi kadha next time manam build cheyalanukunte build nowkotteyochu  )--> build job should be success 
+	
+	so ikkada backend jenkins file lo choostey jenkins file ea ledhu just idhi jenkins-shared-library dwaara new branch ki pipeline create avutundhi just see the flow below 
+	
+	
+	if( ! env.BRANCH_NAME.equalsIgnoreCase('main')){ // true, if branch is feature branch
+    nodeJSEKSPipeline(configmap)
+}
+	
+	dwaara branch new-feature kaabatti condition true so nodeJSEKSPipeline(configmap) calling --> it will goto https://github.com/daws-81s/jenkins-shared-library/blob/main/vars/nodeJSEKSPipeline.groovy  --> in this repo file deploy stage trigger happened and going to https://github.com/daws-81s/backend-cd/blob/main/Jenkinsfile
+	
+	
+	so ee code ni teesukuni oka saari manam 
+	https://github.com/daws-81s/jenkins-shared-library/tree/8c7a7ffa6f01dd8d71ebaeec2f8671a471f205a3
+	
+	jenkins pipeline --> goto new-feature pipeline ( under EXPENSE/backend/backend-CI) --> build with parameters --> select deploy --> build ( so ikkada choostey backend-CD ( under EXPENSE/backend ) kooda deploy avutuntundhi trigger dwaara ) 
+	
+	so idhi multibranch pipeline and jenkinsshared library ( multibranch pipeline antey git lo ni okko branch ki okko pipeline automatic ga create ayyelaaga whenever  developer create a new branch and pushed to github ,  alaagey jenkins shared library dwaara central place loni pipelines ni call chesi build ayyelaaga anna maata ) 
+	ea feature branch ayina default ga dev lo deploy chestaamu endhukantey multiple developers multiple feature develop chestuntaaru so deploy anedhi dev lo chestaamu 
+	
+--> so developement deploy ayipoyindhi ippativaraku so ipudu manam different environments ki deploy chooddamu so ikkada prod ki and QA ki seperate AWS accounts vuntaayi so changes the accountID accordingly 
+	
+	https://github.com/daws-81s/jenkins-shared-library/tree/66abfb5087aedcc98f72f838d70f2c62bb995c70  ( use this repo for parameterrising the accountID	and do deploy again for accountID differentiation ) )
+	
+	jenkins pipeline --> goto new-feature pipeline ( under EXPENSE/backend/backend-CI) --> build with parameters --> select deploy --> build ( so ikkada choostey backend-CD ( under EXPENSE/backend ) kooda deploy avutuntundhi trigger dwaara ) 
+	
+--> so ipudu new feature deveoped and deployed succeefully in dev environment so ipudu manam git hub loki vochi backend ki pull request raise cheyaali --> backend repo ( main ) ki ( antey new-feature branch lo ni new changes ni main branch ki merge cheyadaaniki ) --> once merge the changes into main --> apudu vaallu ea environment kaavalanukuntey aa environment like QA or UAT etc for that goto jenkins 
+
+	got jenkins --> backend-CD pipline --> select qa --> version : whatever the new feature changes version --> build --> koditey adhi aa environent lo deploy ayipotaayi anna maata 
+	
+	
+	
+	
+	
+CR Process
+=================
+
+
+Multi branch pipeline --> to support multiple branches at a time
+CI CD seperate --> CD can do deployments into different environment including DEV
+
+Jenkins shared library 
+=========================
+pipeline as a function --> accepts input parameters and run the pipeline
+
+nodeJSEKSPipeline
+nodeJSVMPipeline
+pythonEKSPipeline
+pythonVMPipeline
+JavaEKSPipeline
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--> if branching strategy like dev, hotfix, master ala vunte pipelines ela set cheyaali ? 

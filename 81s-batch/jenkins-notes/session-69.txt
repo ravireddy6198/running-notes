@@ -3,7 +3,7 @@
 														==========================
 														
 														
-														
+--> must watch session total deployment process in dev, QA, prod 												
 														
 
 
@@ -199,7 +199,9 @@ Helm charts
 	
 --> so ipudu new feature deveoped and deployed succeefully in dev environment so ipudu manam git hub loki vochi backend ki pull request raise cheyaali --> backend repo ( main ) ki ( antey new-feature branch lo ni new changes ni main branch ki merge cheyadaaniki ) --> once merge the changes into main --> apudu vaallu ea environment kaavalanukuntey aa environment like QA or UAT etc for that goto jenkins 
 
-	got jenkins --> backend-CD pipline --> select qa --> version : whatever the new feature changes version --> build --> koditey adhi aa environent lo deploy ayipotaayi anna maata 
+	got jenkins --> backend-CD pipline --> select qa --> version : whatever the new feature changes version --> build --> koditey adhi aa environent lo deploy ayipotaayi anna maata  ( antey ikkada manaki nachina environment ni select chesukuni either QA, pre-prod, prod ala, andhulo direct ga deploy (backend-CD) chestaamu so ikkada manam evrytimre and every environment ki malli CI run cheyalsina avasaram ledhu but project lo ala vuntey run cheyyali CI ni kooda anni environments ki ) 
+	
+	so ipudu production ki deployment vochindhi apudu em cheyalantey 
 	
 	
 	
@@ -207,8 +209,10 @@ Helm charts
 	
 CR Process
 =================
+CR process flow :
 
-
+	create jira account using gmail account ( 01:17:00 - 
+	so ipudu backend team vallu konni tickets raise chesukuni approvals tecjukuntaaranna maata vaalla team leaders nunchi and vaalla managers nunchi, so allaga jeera ticket approve ayyaka backend-CD--> prod select chesukuni prod lo deploy chestaaru ( so ilaa enni components vochina kooda manaki ideal ga node.js ayitey same pipeline template teesukuni vallaki setup chesi istaam 
 Multi branch pipeline --> to support multiple branches at a time
 CI CD seperate --> CD can do deployments into different environment including DEV
 
